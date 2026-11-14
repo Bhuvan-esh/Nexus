@@ -1,0 +1,9 @@
+{
+  "source_repository": "https://github.com/Bhuvan-esh/phase-1",
+  "source_commit": "ae05437e822a019c8c929f86ebab0d86b5fc701f",
+  "artifact": "kn_IN.dic",
+  "entry_count": 140055,
+  "sha256": "d9e372e23aa0e633c11c204476d8eae616f5fdbcae76f531f964e7dbb6b44289",
+  "generated_at": "2026-09-01T15:36:37",
+  "status": "validated"
+}

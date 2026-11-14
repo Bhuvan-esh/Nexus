@@ -1,0 +1,12 @@
+{
+  "dataset": "AI4Bharat/IndicCorpV2",
+  "split": "kan_Knda",
+  "source_url": "https://huggingface.co/datasets/ai4bharat/IndicCorpV2/resolve/refs%2Fconvert%2Fparquet/indiccorp_v2/partial-kan_Knda/0000.parquet",
+  "license": "CC-0",
+  "total_sentences": 2482191,
+  "total_tokens": 22171746,
+  "unique_unigrams": 463274,
+  "unique_bigrams": 1801140,
+  "unique_trigrams": 796402,
+  "db_file": "indiccorp_kn.db"
+}
