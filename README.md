@@ -1,175 +1,348 @@
-# NEXUS: NLP-Based Understanding and Resolution of Noisy Multilingual Text
+# NEXUS: English-to-Kannada Transliteration System
 
-> **NEXUS** is an NLP-focused framework designed to understand, normalize, compare, and resolve noisy textual information across spelling variations, OCR errors, transliteration, multilingual representations, and semantic differences.
+> **Document Control Version**: 2.0 (PRD) & 1.0 (Implementation Plan) | **Date**: October 2026  
+> **Under the Guidance of**: Dr.Girish L  
 
 ---
 
-## 📌 1. Problem Statement
+## 📌 Executive Summary & Scope Baseline
 
-Natural Language Processing (NLP) systems are traditionally evaluated on relatively clean textual benchmarks. However, real-world text—collected from digitized documents, OCR systems, historical archives, government registries, and multilingual datasets—contains significant noise and variation:
+**NEXUS** is an NLP-driven English-to-Kannada transliteration system designed to convert English text written in the Latin alphabet into Kannada script while faithfully preserving the pronunciation of the source text.
 
-```text
-• Spelling variations & Typos
-• OCR glyph confusion & Character corruption
-• Unicode inconsistencies (ZWJ, ZWNJ, composite glyphs)
-• Informal transliteration & Cross-script representations
-• Morphological variations & Agglutination
-• Code-mixed and fragmented text
+```
+       [ Latin-Script English Input ]
+                     │
+                     ▼
+             ┌───────────────┐
+             │  N E X U S    │
+             └───────────────┘
+                     │
+                     ▼
+    [ Kannada-Script Phonetic Rendering ]
 ```
 
-### The Core Dilemma
-Consider the following representations referring to the same underlying entity:
-* **English:** `Bengaluru`, `Bangalore`, `Bengaluru City`
-* **Kannada (Script):** `ಬೆಂಗಳೂರು`
-* **OCR Corrupted:** `ಬೆಂಗಳೊರು`, `Bangal0re`
+### 🚨 Critical Scope Guardrail: Transliteration vs. Translation
 
-A conventional string-matching system treats these as completely distinct tokens. NEXUS answers the fundamental NLP question:
-> **Are these textual differences meaningful, or are they simply noisy representations of the same underlying linguistic information?**
-
----
-
-## 🌍 2. Real-World Applications
-
-* **OCR & Digital Archives:** Preserving searchability and semantic fidelity across millions of digitized manuscripts and historical documents.
-* **Multilingual & Cross-Script Information Retrieval:** Matching queries across scripts (e.g., matching Kannada queries `ಮೈಸೂರು ಅರಮನೆ` with English `Mysore Palace` / `Mysuru Aramane`).
-* **Government & Administrative Data:** Deduplicating and resolving entity records across regional languages, legacy databases, and inconsistent data-entry formats.
-* **Healthcare & Clinical Records:** Unifying patient records, diagnoses, and medical entities amidst typographical variations and multilingual notes.
+NEXUS performs **phonetic transliteration**, **NOT semantic translation**:
+* **Transliteration (In Scope)**: Representing source pronunciation in another script.
+  * `"Hello"` $\rightarrow$ **`"ಹೆಲ್ಲೋ"`**
+  * `"Computer"` $\rightarrow$ **`"ಕಂಪ್ಯೂಟರ್"`**
+  * `"Good morning"` $\rightarrow$ **`"ಗುಡ್ ಮಾರ್ನಿಂಗ್"`**
+* **Translation (Out of Scope)**: Converting meaning into target language vocabulary.
+  * `"Hello"` $\rightarrow$ `"ನಮಸ್ಕಾರ"` *(Incorrect behaviour for NEXUS)*
 
 ---
 
-## 📊 3. Comparison of Existing Approaches
+## 🎯 Project Goals & Non-Goals
 
-| Approach | Strengths | Limitations |
+### Core Objectives
+1. **Phonetic Fidelity**: Faithfully render spoken English sounds in Kannada script without substituting semantic equivalents.
+2. **Context & Span Handling**: Process isolated words, multi-word phrases, and full sentences while preserving token sequence, spacing, and punctuation.
+3. **Specialized Vocabulary**: Consistently handle proper nouns, personal names, geographical entities, technical terms, and acronyms.
+4. **Disambiguation & Fallback**: Resolve context-dependent pronunciations using surrounding evidence; provide graceful fallbacks and uncertainty indicators for low-confidence or out-of-vocabulary (OOV) inputs.
+5. **Unicode Normalization**: Prevent broken combining sequences and ensure standard, render-safe Kannada Unicode output.
+6. **Empirical Benchmarking**: Quantify performance against held-out test sets using standardized metrics (CER, WER, Exact Match).
+
+### Explicit Non-Goals (Phase 1)
+* Semantic English-to-Kannada translation.
+* Kannada-to-English translation or transliteration.
+* Romanized Kannada (Kanglish) to Kannada script conversion.
+* Speech recognition (ASR), text-to-speech (TTS), or real-time voice translation.
+* Image OCR transliteration.
+* Automated unverified online learning from user inputs.
+
+---
+
+## 💡 The Core Problem: Irregular English Orthography
+
+English spelling does not map one-to-one to pronunciation. Letter combinations produce varying sounds, silent letters occur frequently, and word stress alters phonetics. Conversely, Kannada script is predominantly phonetic and syllabic (alphasyllabary/abugida).
+
+| Challenge | Illustrative Pattern | Potential Failure / Risk | NEXUS Handling Strategy |
+| :--- | :--- | :--- | :--- |
+| **Multiple Pronunciations** | `"read"` (present /riːd/ vs. past /rɛd/) | Contextual mismatch | Sentence-level context modeling ($X(k, \text{ctx})$) |
+| **Silent Letters** | `"know"`, `"write"`, `"psychology"` | Naive phonetic artifacts (`"ಕ್ನೋವ್"`) | Grapheme-to-Phoneme (G2P) analysis & dictionary lookup |
+| **Digraphs** | `"sh"`, `"ch"`, `"ph"`, `"th"` | Character-by-character distortion | Multi-character subword / phoneme tokenization |
+| **Vowel Variations** | `"a"` in `"cat"`, `"car"`, `"call"`, `"about"` | Unintended vowel diacritics | Lexical and acoustic phonetic representation |
+| **Proper Nouns & Names** | Non-standard or foreign spellings | Inconsistent or mangled renderings | Curated name lexicon & canonical spelling policy |
+| **Loanword Conventions** | Established vs. phonetic place names | Discrepancy between phonetics & conventions | Documented canonical preference hierarchy |
+
+---
+
+## 📋 Illustrative Transliteration Matrix
+
+| Input Type | English Input | Illustrative Kannada Output | Policy / Notes |
+| :--- | :--- | :--- | :--- |
+| **Common Word** | `Hello` | `ಹೆಲ್ಲೋ` | Phonetic rendering; strictly not `"ನಮಸ್ಕಾರ"` |
+| **Technical Vocabulary** | `Machine learning` | `ಮಷೀನ್ ಲರ್ನಿಂಗ್` | Documented technical vocabulary policy |
+| **Borrowed / Loanword** | `Computer` | `ಕಂಪ್ಯೂಟರ್` | Standard conventional borrowing |
+| **Multi-Word Phrase** | `Good morning` | `ಗುಡ್ ಮಾರ್ನಿಂಗ್` | Preserves word sequence and spacing |
+| **Full Sentence** | `The school is open.` | `ದ ಸ್ಕೂಲ್ ಈಸ್ ಓಪನ್.` | Punctuation and structure retained |
+| **Proper Noun (City)** | `Bangalore` | `ಬ್ಯಾಂಗಲೋರ್` | Strict phonetic (vs. conventional `"ಬೆಂಗಳೂರು"`) |
+| **Personal Name** | `Bhuvanesh` | `ಭುವನೇಶ್` | Dedicated name transliteration handling |
+| **Protected Spans** | `https://example.com` | `https://example.com` | URLs, emails, and code spans preserved |
+
+---
+
+## 🏗️ System Architecture & Pipeline
+
+NEXUS uses a modular NLP architecture designed for independent unit testing, benchmarking, and maintainability.
+
+```mermaid
+flowchart TD
+    A[English Latin Input] --> B[Input Validation & Guardrails]
+    B --> C[Preprocessing & Normalization]
+    C --> D[Tokenizer & Protected Span Identifier]
+    D --> E[Pronunciation Analysis / G2P]
+    E --> F[Kannada Candidate Generator]
+    F --> G[Lexicon / Exception Lookup]
+    F --> H[Contextual Candidate Ranker]
+    G --> H
+    H --> I[Candidate Selection & Fallback Logic]
+    I --> J[Post-Processing & Kannada Unicode Normalization]
+    J --> K[Final Kannada Transliteration Output]
+```
+
+### Detailed Pipeline Stages
+
+1. **Input Layer & Validation**: Verifies Latin-script input, checks boundary length limits, rejects empty inputs, and isolates protected spans (URLs, code, emails).
+2. **Preprocessing & Normalization**: Strips excessive whitespace while preserving semantic casing metadata and punctuation.
+3. **Tokenization / Segmentation**: Breaks input into sentences, words, subwords, and punctuation tokens.
+4. **Pronunciation Analysis (G2P)**: Maps graphemic patterns into phonetic representations using CMU Pronouncing Dictionary and G2P engines (e.g., `g2p-en` / `Phonetisaurus`).
+5. **Candidate Generation**: Generates viable Kannada-script representations combining lexicon lookups and phonetic rule synthesis.
+6. **Candidate Ranking & Selection**: Evaluates candidate validity using weighted acoustic, lexical, and contextual scoring.
+7. **Post-Processing & Output Normalization**: Enforces Unicode Kannada block consistency, handles virama / vowel-modifier rules, and reconstructs spacing and punctuation.
+
+### 🖥️ End-to-End Pipeline Execution Trace
+
+The CLI execution trace below illustrates how an English token flows through each modular stage of the pipeline in real-time:
+
+```text
+Enter English text: hello
+
+INPUT:
+hello
+
+VALIDATION:
+Input accepted
+
+NORMALIZATION:
+hello
+
+TOKENIZATION:
+['hello']
+
+PRONUNCIATION ANALYSIS:
+hello: no configured multi-letter pattern; individual-letter rules will be used
+
+CANDIDATE GENERATION:
+hello: dictionary, phonetic rules -> ಹೆಲ್ಲೋ
+
+CANDIDATE SELECTION:
+hello -> ಹೆಲ್ಲೋ (score 150, dictionary, phonetic rules)
+
+POST-PROCESSING:
+ಹೆಲ್ಲೋ
+
+FINAL OUTPUT:
+ಹೆಲ್ಲೋ
+```
+
+---
+
+## 🧮 Proposed Hybrid Algorithmic Formulation
+
+NEXUS employs a hybrid architecture pairing a high-precision lexicon dictionary with an adaptable phonetic rule engine.
+
+### 1. Candidate Generation Formula
+For any English token $w$, let $D(w)$ denote candidates from the curated dictionary and $R(w)$ denote candidates synthesized by phonetic rules:
+
+$$C(w) = D(w) \cup R(w)$$
+
+If $C(w) = \emptyset$, the token is routed to the unknown-word fallback module.
+
+### 2. Candidate Scoring & Selection Formula
+Each candidate $k \in C(w)$ is evaluated using a weighted multi-factor objective:
+
+$$\text{Score}(k \mid w, \text{ctx}) = \alpha \cdot P(k, w) + \beta \cdot L(k, w) + \gamma \cdot X(k, \text{ctx})$$
+
+Where:
+* $P(k, w) \in [0, 1]$: Phonetic correspondence score between source sound units and candidate $k$.
+* $L(k, w) \in [0, 1]$: Lexical evidence score based on dictionary frequency and approved status.
+* $X(k, \text{ctx}) \in [0, 1]$: Contextual fit score given surrounding tokens $\text{ctx}$.
+* $\alpha, \beta, \gamma \ge 0$: Non-negative weights tuned on validation data (for context-free baseline: $\gamma = 0, \alpha + \beta = 1$).
+
+### 3. Selection & Fallback Decision
+$$k^* = \arg\max_{k \in C(w)} \text{Score}(k \mid w, \text{ctx})$$
+
+$$\text{Output}(w) = \begin{cases} k^* & \text{if } \text{Score}(k^* \mid w, \text{ctx}) \ge \tau \\ \text{Fallback}(w) & \text{if } \text{Score}(k^* \mid w, \text{ctx}) < \tau \end{cases}$$
+
+Where $\tau$ is the empirically calibrated confidence threshold.
+
+---
+
+## 💻 Repository Structure
+
+```
+NEXUS/
+├── data/
+│   ├── raw/                 # Unprocessed source datasets
+│   ├── processed/           # Normalized & deduplicated train/val splits
+│   └── test/                # Held-out benchmark test sets
+├── models/
+│   ├── checkpoints/         # Trained model weights and rule caches
+│   └── configurations/      # Model & pipeline hyperparameters (YAML/JSON)
+├── src/
+│   ├── __init__.py
+│   ├── input_handler.py     # Input intake & validation
+│   ├── preprocessing.py     # Whitespace & casing normalization
+│   ├── normalization.py     # Script & character set normalization
+│   ├── tokenizer.py         # Word, punctuation & protected span segmentation
+│   ├── pronunciation.py     # English G2P & phoneme mapping
+│   ├── candidate_generator.py # Dictionary lookup & phonetic candidate synthesis
+│   ├── candidate_ranker.py  # Weighted candidate scoring (alpha, beta, gamma)
+│   ├── postprocessing.py    # Kannada Unicode normalization & formatting
+│   └── transliteration.py   # Core end-to-end pipeline orchestrator
+├── tests/
+│   ├── test_validation.py   # Input edge cases and guardrail tests
+│   ├── test_g2p.py          # Pronunciation analysis tests
+│   ├── test_unicode.py      # Kannada Unicode rendering & normalization tests
+│   └── test_regression.py   # Fixed error regression test suite
+├── evaluation/
+│   ├── evaluate.py          # CER, WER, and Exact Match evaluation runner
+│   └── results/             # Benchmark logs, confusion matrices, and reports
+├── app.py                   # Interactive Streamlit demonstration web interface
+├── requirements.txt         # Project dependencies
+└── README.md                # Project documentation
+```
+
+---
+
+## 🛠️ Technology Stack
+
+| Domain | Tool / Library | Purpose |
 | :--- | :--- | :--- |
-| **Exact String Matching** | Fast, simple, deterministic ($O(1)$) | Zero tolerance for typos, OCR noise, or transliteration. |
-| **Fuzzy Matching (Levenshtein / Jaro-Winkler)** | Effective on minor typos and surface OCR edits | Captures only surface structure; fails at cross-script, transliteration, and semantics. |
-| **Rule-Based Systems** | Highly interpretable and deterministic | Brittle, hard to scale across scripts, morphological changes, and unseen domains. |
-| **Statistical & ML Models** | Learns patterns from domain corpora | Strongly dependent on large labeled datasets; struggles with low-resource languages. |
-| **Transformer Embeddings** | Strong at semantic relationships and paraphrasing | High semantic similarity does not guarantee identity (e.g., *Mysore Palace* vs *Bangalore Palace*). |
+| **Language** | Python 3.10+ | Core language for development and evaluation |
+| **Text & Unicode** | `unicodedata`, `regex` | Unicode normalization (NFC) & token handling |
+| **Data Processing** | `pandas`, `numpy` | Dataset ingestion, deduplication, and manipulation |
+| **Phonetics & G2P** | `cmudict`, `g2p-en` / `Phonetisaurus` | English grapheme-to-phoneme conversion |
+| **Modeling (Exploratory)** | `torch` / `scikit-learn` | Sequence candidate ranking & neural baseline exploration |
+| **Evaluation Metrics** | `editdistance`, `jiwer` | Character Error Rate (CER) and Word Error Rate (WER) |
+| **Testing** | `pytest` | Automated unit, integration, and regression testing |
+| **Web Interface** | `streamlit` | Interactive GUI for live user demonstration |
 
 ---
 
-## 💡 4. The NEXUS Hybrid Philosophy
+## 🚀 Getting Started
 
-Rather than relying on a single model or representation, NEXUS implements a **Hybrid NLP Architecture** that fuses multi-granular signals:
-
-```text
-               RAW INPUT TEXT
-                     │
-            ┌────────┼────────┐
-            ▼        ▼        ▼
-       Character  Lexical  Semantic
-          NLP       NLP       NLP
-            │        │        │
-            └────────┼────────┘
-                     ▼
-              Feature Fusion
-                     │
-                     ▼
-          Entity Resolution Layer
+### 1. Clone the Repository
+```bash
+git clone https://github.com/Bhuvan-esh/Nexus.git
+cd Nexus
 ```
 
-* **Character-Level NLP:** Evaluates structural similarity, character-swaps, and OCR glyph confusions.
-* **Lexical NLP:** Analyzes token correspondences, n-gram frequencies, and morphological roots.
-* **Semantic NLP:** Captures cross-lingual context and deep semantic relationships.
-* **Decision / Fusion Layer:** Synthesizes evidence across all tiers to determine identity resolution.
+### 2. Set Up a Virtual Environment
+```bash
+# Windows (PowerShell)
+python -m venv venv
+.\venv\Scripts\Activate.ps1
 
----
+# Linux / macOS
+python3 -m venv venv
+source venv/bin/activate
+```
 
-## 🏗️ 5. Proposed Pipeline Architecture
+### 3. Install Dependencies
+```bash
+pip install --upgrade pip
+pip install -r requirements.txt
+```
 
-```text
-                    RAW TEXT
-                       │
-                       ▼
-             ┌──────────────────┐
-             │ Preprocessing    │
-             └────────┬─────────┘
-                      │
-                      ▼
-             ┌──────────────────┐
-             │ Normalization    │
-             │                  │
-             │ • Unicode (NFC)  │
-             │ • OCR Noise      │
-             │ • Transliteration│
-             └────────┬─────────┘
-                      │
-                      ▼
-             ┌──────────────────┐
-             │ Linguistic NLP   │
-             │                  │
-             │ • Tokenization   │
-             │ • Morphology     │
-             │ • Language ID    │
-             └────────┬─────────┘
-                      │
-             ┌────────┴─────────┐
-             ▼                  ▼
-     ┌───────────────┐  ┌────────────────┐
-     │ Lexical /     │  │ Semantic NLP   │
-     │ Character NLP │  │ (Transformers) │
-     └───────┬───────┘  └───────┬────────┘
-             │                  │
-             └────────┬─────────┘
-                      ▼
-             ┌──────────────────┐
-             │ Feature Fusion   │
-             └────────┬─────────┘
-                      │
-                      ▼
-             ┌──────────────────┐
-             │ NLP Decision     │
-             │ Layer            │
-             └────────┬─────────┘
-                      │
-                      ▼
-          Entity / Meaning Resolution
+### 4. Run the Pipeline in Terminal (CLI Mode)
+```bash
+python main.py
+```
+
+### 5. Run the Interactive Web Demonstration
+```bash
+streamlit run app.py
+```
+
+### 6. Run the Test Suite
+```bash
+pytest tests/
+```
+
+### 7. Run the Benchmark Evaluation
+```bash
+python evaluation/evaluate.py --test-set data/test/held_out_eval.json
 ```
 
 ---
 
-## 🔬 6. Why Kannada as the Focus Language?
+## 📊 Evaluation & Benchmarking Strategy
 
-Kannada serves as an ideal low-resource benchmark language for investigating noisy multilingual NLP because it presents compound challenges simultaneously:
-* **Complex Akshara Structure:** Consonant conjuncts (ottu), vowel diacritics (matras), and virama combinations.
-* **Rich Agglutinative Morphology:** Extensive case inflections and suffixes appended to root stems.
-* **OCR Vulnerability:** Scanned historical documents frequently introduce glyph fragmentation.
-* **Resource Asymmetry:** Fewer pre-trained models and structured datasets compared to high-resource languages like English.
+### Core Metrics
+1. **Character Error Rate (CER)**: Normalized Levenshtein distance at character level:
+   $$\text{CER} = \frac{S + D + I}{N}$$
+2. **Word Error Rate (WER)**: Token-level substitution, deletion, and insertion rate.
+3. **Exact Match Accuracy (EMA)**: Proportion of predictions identical to the preferred reference.
+4. **Qualitative Phonetic Accuracy**: Human inspection of pronunciation fidelity on ambiguous samples.
+5. **Latency (Median & p95)**: Inference responsiveness per token and per sentence.
 
----
-
-## 📈 7. Evaluation Framework
-
-NEXUS is evaluated against progressively stronger baselines across varying noise levels (0%, 10%, 25%, 50% character corruption):
-
-1. **Baseline 1:** Exact Matching
-2. **Baseline 2:** Fuzzy String Matching (Levenshtein, Jaro-Winkler)
-3. **Baseline 3:** Pre-trained Cross-Lingual Embeddings (Cosine Distance)
-4. **Baseline 4:** NEXUS Hybrid Pipeline
-
-### Key Metrics
-* **Precision, Recall, F1-Score**
-* **False Positive & False Negative Rates**
-* **Noise Degradation Curves (Robustness)**
-* **Inference Latency**
+### Evaluation Test Set Categories
+* Common vocabulary with regular phonetic spelling.
+* Words with silent letters and irregular English orthography (`"knife"`, `"doubt"`).
+* Vowel digraphs and polyphonic consonants (`"ch"`, `"th"`, `"ph"`).
+* Multi-syllable and compound words.
+* Full sentences with punctuation and contractions.
+* Personal, geographical, and organizational proper nouns.
+* Technical and academic vocabulary.
+* Out-of-vocabulary (OOV) and low-confidence test cases.
 
 ---
 
-## 🔮 8. Roadmap & Future Scope
+## 🔍 Error Taxonomy & Diagnostics
 
-```text
-NEXUS Framework
- ├── OCR-Aware Noise Normalization
- ├── Multilingual & Cross-Script Canonicalization
- ├── Entity Resolution & Deduplication
- ├── Entity Clustering & Knowledge Graph Construction
- ├── RAG-Based Robust Retrieval
- └── LLM-Assisted Reasoning for Ambiguous Edge Cases
-```
+| Error Category | Root Cause | Diagnostic & Mitigation Strategy |
+| :--- | :--- | :--- |
+| **G2P Mismatch** | English spelling incorrectly mapped to phonemes | Review phonetic transcription in pronunciation module |
+| **P2G Mismatch** | Correct phonemes rendered with wrong Kannada glyphs | Audit Kannada orthographic synthesis mapping table |
+| **Syllabification Defect** | Misplaced consonant clusters or missing virama | Inspect conjunct formation and halant (`್`) placement |
+| **Lexicon Divergence** | System overrides preferred conventional spelling | Adjust lexical weight $\beta$ relative to phonetic weight $\alpha$ |
+| **Contextual Error** | Polyphonic word misclassified | Incorporate local bi-gram / n-gram context features |
+| **Unicode Malformation** | Malformed combining character sequence | Enforce NFC normalization via `unicodedata.normalize('NFC', text)` |
 
 ---
 
-## 📄 License
+## 📅 Development Roadmap & Milestones
 
-This project is licensed under the [MIT License](LICENSE) (or to be determined).
+| Phase | Milestone | Duration | Target Deliverables |
+| :---: | :--- | :---: | :--- |
+| **Phase 1** | Scope & Setup | Week 1 | Repository setup, documentation, development environment |
+| **Phase 2** | Data Audit & Acquisition | Week 2 | Transliteration corpus acquisition, licence review, data inventory |
+| **Phase 3** | Data Preparation | Week 3 | Data cleaning, Unicode validation, train/val/test splits |
+| **Phase 4** | Baseline Development | Week 4 | Simple rule-based G2P mapping, initial CER/WER benchmark |
+| **Phase 5** | Core Modules | Weeks 5–6 | Pronunciation analyzer, candidate generator, ranking engine |
+| **Phase 6** | Integration & Testing | Week 7 | Pipeline assembly, unit tests, edge-case and regression tests |
+| **Phase 7** | Evaluation & Demo | Week 8 | Final evaluation report, held-out benchmarking, Streamlit prototype |
+
+---
+
+## 🔮 Future Enhancements (Phase 2)
+
+Following successful validation of the core English-to-Kannada engine, NEXUS may be expanded to support:
+* **Multilingual Input Handling**: Robust handling of code-mixed text and non-English Latin words.
+* **Noisy Text Resolution**: Graceful handling of phonetic typos, SMS lingo, and informal spellings.
+* **Cross-Script Normalization**: Support for reverse transliteration and Romanized Kannada (Kanglish).
+* **Named Entity Recognition (NER)**: Automated entity detection for context-aware name vs. word disambiguation.
+* **Low-Latency REST API**: Containerized microservice deployment for external integrations.
+
+---
+
+## 👥 Project Team & Academic Governance
+
+* **Project**: NEXUS
+* **Author / Developer**: J Bhuvanesh, S.Md.Naqeeb, Nitin S
+* **Under the Guidance of**: Dr.Girish L  
+* **Department**: AI & ML, AI & DS  
+* **Date**: October 2026  
