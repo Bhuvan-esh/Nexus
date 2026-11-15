@@ -49,3 +49,13 @@ data/raw/*
 !data/raw/.gitkeep
 models/checkpoints/*
 !models/checkpoints/.gitkeep
+
+# Node & Expo Frontend
+frontend/node_modules/
+node_modules/
+frontend/.expo/
+.expo/
+frontend/web-build/
+frontend/dist/
+.npm
+
