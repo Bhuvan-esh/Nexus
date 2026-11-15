@@ -227,7 +227,7 @@ export const ChatScreen: React.FC = () => {
                     </View>
 
                     {/* Display-size primary output in Noto Sans Kannada */}
-                    <Text style={styles.displayKannada} lang="kn">
+                    <Text style={styles.displayKannada} accessibilityLanguage="kn">
                       {msg.text || (msg.isStreaming ? "Resolving sounds..." : "")}
                     </Text>
 

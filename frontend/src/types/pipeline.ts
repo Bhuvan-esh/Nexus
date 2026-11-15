@@ -77,7 +77,7 @@ export interface TokenItem {
   origin: string[];
   candidates: CandidateBreakdown[];
   isProtected?: boolean;
-  kind?: "word" | "url" | "email" | "code" | "punctuation";
+  kind?: "word" | "url" | "email" | "code" | "acronym" | "punctuation";
   sha256Source?: string;
   sha256Output?: string;
 }

@@ -38,7 +38,7 @@ export const TokenInspector: React.FC<TokenInspectorProps> = ({
           <ScrollView style={styles.scrollArea}>
             {/* Primary Chosen Representation */}
             <View style={styles.primaryBox}>
-              <Text style={styles.kannadaDisplay} lang="kn">
+              <Text style={styles.kannadaDisplay} accessibilityLanguage="kn">
                 {token.kannada}
               </Text>
 
@@ -75,7 +75,7 @@ export const TokenInspector: React.FC<TokenInspectorProps> = ({
                   <View style={styles.candTopRow}>
                     <View style={styles.candNameRow}>
                       <Text style={styles.candRank}>#{idx + 1}</Text>
-                      <Text style={styles.candKannada} lang="kn">
+                      <Text style={styles.candKannada} accessibilityLanguage="kn">
                         {cand.kannada}
                       </Text>
                       {isSelected && <Text style={styles.activeCheck}>✓ Active</Text>}

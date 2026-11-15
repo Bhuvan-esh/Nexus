@@ -54,7 +54,7 @@ export const InterlinearView: React.FC<InterlinearViewProps> = ({
                     styles.kannadaText,
                     isAmber && styles.kannadaTextAmber,
                   ]}
-                  lang="kn"
+                  accessibilityLanguage="kn"
                 >
                   {tok.kannada}
                 </Text>
