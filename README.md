@@ -184,6 +184,13 @@ Where $\tau$ is the empirically calibrated confidence threshold.
 
 ```
 NEXUS/
+├── docs/                    # Design specifications & documentation
+│   ├── frontend_design.md   # "Warm paper, living voice" UI design specification
+│   └── NEXUS_Frontend_Design_Specification.md # Full design brief (Google Drive ready)
+├── frontend/                # Interactive React Native & Expo UI
+│   ├── src/tokens/          # 8 semantic design tokens & typography scale
+│   ├── src/components/      # 4-state Orb, Interlinear view, Protected badge, Proof sheet
+│   └── src/screens/         # Chat screen orchestrating Ask, Answer, Proof
 ├── data/
 │   ├── raw/                 # Unprocessed source datasets
 │   ├── processed/           # Normalized & deduplicated train/val splits
@@ -193,27 +200,39 @@ NEXUS/
 │   └── configurations/      # Model & pipeline hyperparameters (YAML/JSON)
 ├── src/
 │   ├── __init__.py
-│   ├── input_handler.py     # Input intake & validation
-│   ├── preprocessing.py     # Whitespace & casing normalization
-│   ├── normalization.py     # Script & character set normalization
-│   ├── tokenizer.py         # Word, punctuation & protected span segmentation
-│   ├── pronunciation.py     # English G2P & phoneme mapping
-│   ├── candidate_generator.py # Dictionary lookup & phonetic candidate synthesis
-│   ├── candidate_ranker.py  # Weighted candidate scoring (alpha, beta, gamma)
-│   ├── postprocessing.py    # Kannada Unicode normalization & formatting
-│   └── transliteration.py   # Core end-to-end pipeline orchestrator
+│   ├── input_handler.py     # Stage 1: Input validation & guardrails
+│   ├── preprocessing.py     # Stage 2: Whitespace & casing normalization
+│   ├── tokenizer.py         # Stage 3: Word, punctuation & protected span segmentation
+│   ├── pronunciation.py     # Stage 4: English G2P & phoneme mapping
+│   ├── candidate_generator.py # Stage 5: Dictionary lookup & phonetic candidate synthesis
+│   ├── candidate_ranker.py  # Stage 6: Weighted candidate scoring (alpha, beta, gamma)
+│   ├── postprocessing.py    # Stage 7: Kannada Unicode NFC normalization & formatting
+│   ├── transliteration.py   # Core end-to-end pipeline orchestrator & event streaming
+│   └── api.py               # FastAPI server (WebSocket /ws/transliterate & REST)
 ├── tests/
 │   ├── test_validation.py   # Input edge cases and guardrail tests
-│   ├── test_g2p.py          # Pronunciation analysis tests
-│   ├── test_unicode.py      # Kannada Unicode rendering & normalization tests
-│   └── test_regression.py   # Fixed error regression test suite
+│   └── test_spans.py        # Protected span preservation & SHA-256 integrity tests
 ├── evaluation/
 │   ├── evaluate.py          # CER, WER, and Exact Match evaluation runner
 │   └── results/             # Benchmark logs, confusion matrices, and reports
-├── app.py                   # Interactive Streamlit demonstration web interface
+├── main.py                  # CLI execution trace runner
+├── app.py                   # Streamlit fallback prototype
 ├── requirements.txt         # Project dependencies
 └── README.md                # Project documentation
 ```
+
+---
+
+## 📱 User Interface (Frontend)
+
+NEXUS features a tactile, chat-style transliteration UI designed around the **"Warm paper, living voice"** design system:
+* **Tactile Paper Canvas**: `#F5F1EA` paper background with procedural grain texture, strict 60/30/10 token discipline, and 1px borders at 8% ink.
+* **The Living Voice (NEXUS Orb)**: 72pt primary control with 4 distinct states (Idle breathing, Typing ripple, Thinking with 7 orbiting stage particles, and Resolved emerald pulse).
+* **Interlinear "Resolve-Along"**: Aligns English source tokens directly above Kannada script with real-time resolve glow.
+* **Protected-Span Integrity**: Visual `#EFEBE2` badge with lock glyph and verified SHA-256 byte-exact match for URLs, emails, and code snippets.
+* **Pipeline Proof Sheet**: Bottom sheet displaying the 7-stage CLI execution trace and multi-factor candidate scoring ($P, L, X$).
+* **Full Specification**: See [docs/frontend_design.md](docs/frontend_design.md) and [docs/NEXUS_Frontend_Design_Specification.md](docs/NEXUS_Frontend_Design_Specification.md).
+
 
 ---
 
