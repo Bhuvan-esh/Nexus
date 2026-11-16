@@ -146,11 +146,51 @@ If you did not request this, please ignore this email.
 — The NEXUS Team
 """
 
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #F5F1EA; margin: 0; padding: 24px; color: #1C1A17; }}
+        .card {{ max-width: 480px; margin: 0 auto; background: #FBF9F5; border: 1px solid rgba(28, 26, 23, 0.1); border-radius: 16px; padding: 32px; box-shadow: 0 4px 12px rgba(0,0,0,0.04); }}
+        .brand {{ display: inline-block; font-size: 24px; font-weight: 700; color: #C8553D; font-family: serif; }}
+        .badge {{ display: inline-block; font-size: 11px; background: rgba(200, 85, 61, 0.1); color: #C8553D; padding: 2px 8px; border-radius: 6px; font-weight: 600; margin-left: 8px; }}
+        .tagline {{ font-size: 13px; font-style: italic; color: #706B63; margin-top: 4px; }}
+        .greeting {{ font-size: 15px; margin-top: 24px; line-height: 1.5; }}
+        .code-box {{ margin: 24px 0; background: #EFEBE2; border: 1px dashed rgba(28, 26, 23, 0.2); border-radius: 12px; padding: 20px; text-align: center; }}
+        .code {{ font-size: 32px; font-weight: 700; letter-spacing: 6px; font-family: monospace; color: #1C1A17; }}
+        .footer {{ font-size: 12px; color: #706B63; border-top: 1px solid rgba(28, 26, 23, 0.08); padding-top: 16px; margin-top: 24px; line-height: 1.4; }}
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <div>
+          <span class="brand">NEXUS</span>
+          <span class="badge">Verification</span>
+        </div>
+        <div class="tagline">Breaking Language Barriers, Connecting Meaning</div>
+        <div class="greeting">
+          <p><strong>{greeting}</strong></p>
+          <p>Welcome to NEXUS! Please use the following 6-digit verification code to confirm your email address and activate your account:</p>
+        </div>
+        <div class="code-box">
+          <div class="code">{code}</div>
+        </div>
+        <p style="font-size: 12px; color: #706B63;">This code is valid for <strong>15 minutes</strong>.</p>
+        <div class="footer">
+          If you did not request this verification, you can safely ignore this email.<br>
+          &copy; NEXUS Transliteration Engine
+        </div>
+      </div>
+    </body>
+    </html>
+    """
+
     print(f"\n=======================================================")
-    print(f"📧 [NEXUS EMAIL VERIFICATION]")
+    print(f"📧 [NEXUS EMAIL DISPATCH]")
     print(f"To: {email} ({username})")
     print(f"Verification Code: >>> {code} <<<")
-    print(f"Expires in 15 minutes")
     print(f"Database: {'Supabase PostgreSQL' if IS_POSTGRES else 'SQLite'}")
     print(f"=======================================================\n")
 
@@ -158,16 +198,18 @@ If you did not request this, please ignore this email.
         return True
 
     try:
-        msg = MIMEMultipart()
-        msg["From"] = SMTP_FROM
+        msg = MIMEMultipart("alternative")
+        msg["From"] = f"NEXUS Transliteration <{SMTP_FROM}>"
         msg["To"] = email
-        msg["Subject"] = "NEXUS Transliteration — Email Verification Code"
+        msg["Subject"] = f"{code} is your NEXUS verification code"
         msg.attach(MIMEText(body_text, "plain"))
+        msg.attach(MIMEText(html_content, "html"))
 
         with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
             server.starttls()
             server.login(SMTP_USER, SMTP_PASSWORD)
             server.send_message(msg)
+        print(f" Real email delivered successfully to {email} via Gmail SMTP.")
         return True
     except Exception as e:
         print(f"⚠️ SMTP Send Failed: {e}")
