@@ -1,5 +1,6 @@
 /**
  * API Service wrapper for NEXUS Backend
+ * Handles Transliteration & Real Authentication Flow
  */
 
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
@@ -16,18 +17,105 @@ export async function checkHealth() {
 }
 
 export async function transliterateText(text) {
-  try {
-    const res = await fetch(`${BASE_URL}/api/transliterate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
-    });
-    if (!res.ok) throw new Error(`Transliteration request failed: ${res.statusText}`);
-    return await res.json();
-  } catch (err) {
-    console.error("Transliterate error:", err);
-    throw err;
+  const res = await fetch(`${BASE_URL}/api/transliterate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || "Transliteration failed");
   }
+  return await res.json();
+}
+
+// ---------------- Authentication APIs ----------------
+
+export async function signUpUser({ username, email, password, confirmPassword }) {
+  const res = await fetch(`${BASE_URL}/api/auth/signup`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      username,
+      email,
+      password,
+      confirm_password: confirmPassword,
+    }),
+  });
+  const data = await res.json().catch(() => ({ detail: res.statusText }));
+  if (!res.ok) {
+    throw new Error(data.detail || "Sign up failed");
+  }
+  return data;
+}
+
+export async function verifyEmailCode({ email, code }) {
+  const res = await fetch(`${BASE_URL}/api/auth/verify`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, code }),
+  });
+  const data = await res.json().catch(() => ({ detail: res.statusText }));
+  if (!res.ok) {
+    throw new Error(data.detail || "Verification failed");
+  }
+  return data;
+}
+
+export async function resendVerificationCode(email) {
+  const res = await fetch(`${BASE_URL}/api/auth/resend`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  const data = await res.json().catch(() => ({ detail: res.statusText }));
+  if (!res.ok) {
+    throw new Error(data.detail || "Failed to resend code");
+  }
+  return data;
+}
+
+export async function loginUser({ identifier, password }) {
+  const res = await fetch(`${BASE_URL}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ identifier, password }),
+  });
+  const data = await res.json().catch(() => ({ detail: res.statusText }));
+  if (!res.ok) {
+    // If user needs verification, return special structure
+    if (res.status === 403 && data.detail?.needs_verification) {
+      const err = new Error(data.detail.message || "Please verify your email.");
+      err.needs_verification = true;
+      err.email = data.detail.email;
+      err.username = data.detail.username;
+      throw err;
+    }
+    throw new Error(typeof data.detail === "string" ? data.detail : "Login failed");
+  }
+  return data;
+}
+
+export async function googleSignIn({ email, name }) {
+  const res = await fetch(`${BASE_URL}/api/auth/google`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, name }),
+  });
+  const data = await res.json().catch(() => ({ detail: res.statusText }));
+  if (!res.ok) {
+    throw new Error(data.detail || "Google sign in failed");
+  }
+  return data;
+}
+
+export async function getCurrentUser(token) {
+  if (!token) return null;
+  const res = await fetch(`${BASE_URL}/api/auth/me`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) return null;
+  return await res.json();
 }
 
 export { BASE_URL };

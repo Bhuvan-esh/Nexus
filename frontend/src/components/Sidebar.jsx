@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Plus, Trash2, Edit2, Check, X, Clock, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Trash2, Edit2, Check, X, Clock, ChevronLeft, ChevronRight, LogOut, User } from "lucide-react";
 
 export function Sidebar({
   conversations = [],
@@ -10,6 +10,8 @@ export function Sidebar({
   onRenameChat,
   isOpen,
   onToggle,
+  currentUser,
+  onLogout,
 }) {
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState("");
@@ -35,7 +37,7 @@ export function Sidebar({
 
   return (
     <>
-      {/* Toggle button on border */}
+      {/* Toggle button on border for mobile / collapse */}
       <button
         onClick={onToggle}
         className={`fixed top-20 z-20 transition-all duration-300 p-1.5 rounded-r-lg bg-card border border-l-0 border-ink/8 shadow-sm hover:bg-paper ${
@@ -48,19 +50,19 @@ export function Sidebar({
 
       {/* Slide-out Drawer */}
       <aside
-        className={`fixed top-16 bottom-0 left-0 z-10 w-64 bg-card border-r border-ink/8 flex flex-col transition-transform duration-300 ${
-          isOpen ? "translate-x-0 shadow-lg md:shadow-none" : "-translate-x-full"
+        className={`fixed md:relative top-16 md:top-0 bottom-0 left-0 z-20 w-64 bg-card border-r border-ink/8 flex flex-col transition-all duration-300 ${
+          isOpen ? "translate-x-0 shadow-lg md:shadow-none" : "-translate-x-full md:translate-x-0 md:w-64"
         }`}
       >
         {/* Header with New Chat */}
-        <div className="p-4 border-b border-ink/8 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-xs font-mono font-semibold uppercase text-ink/60 tracking-wider">
+        <div className="p-3 border-b border-ink/8 flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-[11px] font-mono font-semibold uppercase text-ink/60 tracking-wider">
             <Clock className="w-3.5 h-3.5" />
-            History
+            Transliterations
           </div>
           <button
             onClick={onNewChat}
-            className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-pill bg-paper border border-ink/8 text-ink hover:border-accent/40 transition-colors"
+            className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-pill bg-paper border border-ink/8 text-ink hover:border-accent/40 hover:text-accent transition-colors shadow-sm"
           >
             <Plus className="w-3.5 h-3.5" />
             New
@@ -71,7 +73,7 @@ export function Sidebar({
         <div className="flex-1 overflow-y-auto p-2 space-y-1">
           {conversations.length === 0 ? (
             <div className="p-6 text-center text-xs text-ink/40">
-              No previous transliterations yet.
+              No conversations yet. Start typing in the center conversation bar!
             </div>
           ) : (
             conversations.map((chat) => {
@@ -107,7 +109,7 @@ export function Sidebar({
                   ) : (
                     <>
                       <div className="truncate flex-1 pr-2">
-                        <p className="truncate font-medium">{chat.title || "Untitled Chat"}</p>
+                        <p className="truncate font-medium">{chat.title || "Untitled"}</p>
                         <p className="text-[10px] text-ink/40 font-mono">
                           {new Date(chat.timestamp).toLocaleDateString([], {
                             month: "short",
@@ -143,9 +145,31 @@ export function Sidebar({
           )}
         </div>
 
-        {/* Footer */}
-        <div className="p-3 border-t border-ink/8 text-[11px] text-ink/50 text-center font-mono">
-          NEXUS v2.0 · Paper UI
+        {/* User Profile & Logout Footer */}
+        <div className="p-3 border-t border-ink/8 bg-code/30">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 truncate pr-2">
+              <div className="w-7 h-7 rounded-full bg-accent/15 border border-accent/20 flex items-center justify-center text-accent font-bold text-xs">
+                {currentUser?.username?.[0]?.toUpperCase() || <User className="w-3.5 h-3.5" />}
+              </div>
+              <div className="truncate">
+                <span className="block text-xs font-semibold text-ink truncate">
+                  {currentUser?.username || "Verified User"}
+                </span>
+                <span className="block text-[10px] text-ink/50 font-mono truncate">
+                  {currentUser?.email || ""}
+                </span>
+              </div>
+            </div>
+
+            <button
+              onClick={onLogout}
+              className="p-1.5 rounded-lg text-ink/40 hover:text-accent hover:bg-paper transition-colors"
+              title="Log Out"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </aside>
     </>

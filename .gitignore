@@ -44,6 +44,10 @@ ENV/
 .coverage
 htmlcov/
 
+# Local databases
+data/nexus_users.db
+
+
 # Large data and models
 data/raw/*
 !data/raw/.gitkeep

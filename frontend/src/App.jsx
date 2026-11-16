@@ -4,9 +4,42 @@ import { Sidebar } from "./components/Sidebar";
 import { Chat } from "./pages/Chat";
 import { Lab } from "./pages/Lab";
 import { Evaluation } from "./pages/Evaluation";
+import { Auth } from "./pages/Auth";
 import { streamTransliteration } from "./services/stream";
+import { getCurrentUser } from "./services/api";
 
 export default function App() {
+  // Auth State
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const savedUser = localStorage.getItem("nexus_user");
+      return savedUser ? JSON.parse(savedUser) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [authToken, setAuthToken] = useState(() => {
+    return localStorage.getItem("nexus_auth_token") || null;
+  });
+
+  // Verify auth session on load
+  useEffect(() => {
+    if (authToken && !currentUser) {
+      getCurrentUser(authToken).then((res) => {
+        if (res?.user) {
+          setCurrentUser(res.user);
+          localStorage.setItem("nexus_user", JSON.stringify(res.user));
+        } else {
+          handleLogout();
+        }
+      }).catch(() => {
+        handleLogout();
+      });
+    }
+  }, [authToken]);
+
+  // App Navigation & History
   const [activePage, setActivePage] = useState("chat");
   const [conversations, setConversations] = useState(() => {
     try {
@@ -21,18 +54,25 @@ export default function App() {
   const [messages, setMessages] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [completedStages, setCompletedStages] = useState(0);
-  const [selectedProofMsg, setSelectedProofMsg] = useState(null);
   const [inspectedToken, setInspectedToken] = useState(null);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
-  // Sync conversations to localStorage
+  // Tuning Parameters
+  const [tuningParams, setTuningParams] = useState({
+    alpha: 0.5,
+    beta: 0.5,
+    gamma: 0.0,
+    tau: 0.70,
+  });
+
+  // Sync chats to localStorage
   useEffect(() => {
     try {
       localStorage.setItem("nexus_chats", JSON.stringify(conversations));
     } catch {}
   }, [conversations]);
 
-  // Load active chat messages
+  // Load active chat
   useEffect(() => {
     if (activeChatId) {
       const chat = conversations.find((c) => c.id === activeChatId);
@@ -41,6 +81,23 @@ export default function App() {
       }
     }
   }, [activeChatId]);
+
+  const handleAuthSuccess = (data) => {
+    const user = { username: data.username, email: data.email };
+    setCurrentUser(user);
+    setAuthToken(data.token);
+    localStorage.setItem("nexus_user", JSON.stringify(user));
+    localStorage.setItem("nexus_auth_token", data.token);
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    setAuthToken(null);
+    localStorage.removeItem("nexus_user");
+    localStorage.removeItem("nexus_auth_token");
+    setMessages([]);
+    setActiveChatId(null);
+  };
 
   const handleNewChat = () => {
     const newId = `chat-${Date.now()}`;
@@ -79,7 +136,6 @@ export default function App() {
   };
 
   const handleSend = (text) => {
-    // Ensure active chat exists
     let chatId = activeChatId;
     if (!chatId) {
       chatId = `chat-${Date.now()}`;
@@ -92,7 +148,6 @@ export default function App() {
       setConversations((prev) => [newChat, ...prev]);
       setActiveChatId(chatId);
     } else {
-      // Update title if first message
       setConversations((prev) =>
         prev.map((c) =>
           c.id === chatId && c.title === "New Transliteration"
@@ -127,7 +182,7 @@ export default function App() {
     setIsProcessing(true);
     setCompletedStages(0);
 
-    // Stream pipeline events
+    // Stream real-time pipeline events
     streamTransliteration(
       text,
       (event) => {
@@ -199,7 +254,6 @@ export default function App() {
             return msg;
           });
 
-          // Sync back to current conversation
           setConversations((all) =>
             all.map((c) => (c.id === chatId ? { ...c, messages: next } : c))
           );
@@ -237,6 +291,12 @@ export default function App() {
     setInspectedToken((prev) => (prev ? { ...prev, kannada: candidateKannada } : null));
   };
 
+  // If user is not authenticated, show real login / signup
+  if (!currentUser || !authToken) {
+    return <Auth onAuthSuccess={handleAuthSuccess} />;
+  }
+
+  // Once authenticated, render the home page with left panel, center conversation, and right features
   return (
     <div className="min-h-screen flex flex-col bg-paper text-ink relative">
       {/* Top Navbar */}
@@ -247,8 +307,8 @@ export default function App() {
         hasMessages={messages.length > 0}
       />
 
-      <div className="flex-1 flex relative">
-        {/* Slide-out Sidebar History */}
+      <div className="flex-1 flex relative overflow-hidden">
+        {/* Left Side: Sidebar History & Profile */}
         <Sidebar
           conversations={conversations}
           activeId={activeChatId}
@@ -258,25 +318,25 @@ export default function App() {
           onRenameChat={handleRenameChat}
           isOpen={isSidebarOpen}
           onToggle={() => setIsSidebarOpen((v) => !v)}
+          currentUser={currentUser}
+          onLogout={handleLogout}
         />
 
-        {/* Main Content Area */}
-        <main
-          className={`flex-1 flex flex-col transition-all duration-300 ${
-            isSidebarOpen ? "md:ml-64" : "ml-0"
-          }`}
-        >
+        {/* Center: Conversation Stream & Right: Features Panel */}
+        <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
           {activePage === "chat" && (
             <Chat
               messages={messages}
               isProcessing={isProcessing}
               completedStages={completedStages}
               onSend={handleSend}
-              selectedProofMsg={selectedProofMsg}
-              setSelectedProofMsg={setSelectedProofMsg}
               inspectedToken={inspectedToken}
               setInspectedToken={setInspectedToken}
               onSelectCandidate={handleSelectCandidate}
+              tuningParams={tuningParams}
+              onUpdateTuningParams={(updates) =>
+                setTuningParams((prev) => ({ ...prev, ...updates }))
+              }
             />
           )}
 
