@@ -277,8 +277,6 @@ def register_user(username: str, email: str, password: str, confirm_password: st
     return True, f"Verification code sent to {email}.", {
         "email": email,
         "username": username,
-        "code_hint": code,
-        "smtp_configured": bool(SMTP_SERVER and SMTP_USER),
         "database": "supabase_postgres" if IS_POSTGRES else "sqlite",
     }
 
@@ -338,8 +336,6 @@ def register_google_user(email: str) -> Tuple[bool, str, Optional[Dict[str, Any]
     return True, f"Verification code sent to {email}.", {
         "email": email,
         "username": username,
-        "code_hint": code,
-        "smtp_configured": bool(SMTP_SERVER and SMTP_USER),
         "database": "supabase_postgres" if IS_POSTGRES else "sqlite",
     }
 
@@ -406,8 +402,6 @@ def resend_code(email: str) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
     _send_email_code(email, username, code)
     return True, f"New verification code sent to {email}.", {
         "email": email,
-        "code_hint": code,
-        "smtp_configured": bool(SMTP_SERVER and SMTP_USER),
     }
 
 # ----------------- LOG IN (CREDENTIALS & STRICT GOOGLE) -----------------
