@@ -116,8 +116,9 @@ export default function App() {
     const newId = `chat-${Date.now()}`;
     const newChat = {
       id: newId,
-      title: "New Transliteration",
+      title: "New Chat",
       timestamp: Date.now(),
+      isPinned: false,
       messages: [],
     };
     setConversations((prev) => [newChat, ...prev]);
@@ -138,6 +139,12 @@ export default function App() {
   const handleRenameChat = (id, newTitle) => {
     setConversations((prev) =>
       prev.map((c) => (c.id === id ? { ...c, title: newTitle } : c))
+    );
+  };
+
+  const handleTogglePin = (id) => {
+    setConversations((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, isPinned: !c.isPinned } : c))
     );
   };
 
@@ -167,8 +174,9 @@ export default function App() {
       chatId = `chat-${Date.now()}`;
       const newChat = {
         id: chatId,
-        title: text.length > 24 ? text.substring(0, 24) + "..." : text,
+        title: text.length > 28 ? text.substring(0, 28) + "..." : text,
         timestamp: Date.now(),
+        isPinned: false,
         messages: [],
       };
       setConversations((prev) => [newChat, ...prev]);
@@ -176,8 +184,8 @@ export default function App() {
     } else {
       setConversations((prev) =>
         prev.map((c) =>
-          c.id === chatId && c.title === "New Transliteration"
-            ? { ...c, title: text.length > 24 ? text.substring(0, 24) + "..." : text }
+          c.id === chatId && (!c.title || c.title === "New Chat" || c.title === "New Transliteration")
+            ? { ...c, title: text.length > 28 ? text.substring(0, 28) + "..." : text }
             : c
         )
       );
@@ -333,6 +341,7 @@ export default function App() {
         onNewChat={handleNewChat}
         onDeleteChat={handleDeleteChat}
         onRenameChat={handleRenameChat}
+        onTogglePin={handleTogglePin}
         isOpen={isSidebarOpen}
         onToggle={() => setIsSidebarOpen((v) => !v)}
         currentUser={currentUser}
