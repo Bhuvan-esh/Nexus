@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from src.transliteration import transliterate_stream, transliterate
 from src.auth import (
     register_user,
+    register_google_user,
     verify_code,
     resend_code,
     login_with_credentials,
@@ -59,6 +60,9 @@ class LoginRequest(BaseModel):
 class GoogleLoginRequest(BaseModel):
     email: str
 
+class GoogleSignUpRequest(BaseModel):
+    email: str
+
 # ----------------- General Endpoints -----------------
 @app.get("/api/health")
 def health_check():
@@ -84,6 +88,18 @@ def api_signup(payload: SignUpRequest):
         password=payload.password,
         confirm_password=payload.confirm_password,
     )
+    if not success:
+        raise HTTPException(status_code=400, detail=msg)
+    return {"success": True, "message": msg, "data": data}
+
+@app.post("/api/auth/google-signup")
+def api_google_signup(payload: GoogleSignUpRequest):
+    """
+    Sign Up with Google:
+    - Auto-derives default username from the email
+    - Requires mandatory 6-digit verification code
+    """
+    success, msg, data = register_google_user(email=payload.email)
     if not success:
         raise HTTPException(status_code=400, detail=msg)
     return {"success": True, "message": msg, "data": data}

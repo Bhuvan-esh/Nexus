@@ -53,6 +53,22 @@ export async function signUpUser({ username, email, password, confirmPassword })
   return data;
 }
 
+// Sign Up with Google:
+// - Uses email to derive default username
+// - Sends mandatory 6-digit verification code
+export async function googleSignUp(email) {
+  const res = await fetch(`${BASE_URL}/api/auth/google-signup`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  const data = await res.json().catch(() => ({ detail: res.statusText }));
+  if (!res.ok) {
+    throw new Error(data.detail || "Google Sign-Up failed.");
+  }
+  return data;
+}
+
 // Verification: User enters 6-digit code received on mail
 export async function verifyEmailCode({ email, code }) {
   const res = await fetch(`${BASE_URL}/api/auth/verify`, {

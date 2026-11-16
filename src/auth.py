@@ -240,6 +240,67 @@ def register_user(username: str, email: str, password: str, confirm_password: st
         "database": "supabase_postgres" if IS_POSTGRES else "sqlite",
     }
 
+def register_google_user(email: str) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
+    """
+    Sign up with Google:
+    - Extracts default username from the email prefix.
+    - Verification code is strictly MANDATORY.
+    - Dispatches verification code and stores unverified user in Supabase PostgreSQL.
+    """
+    email = email.strip().lower()
+    if not email or "@" not in email:
+        return False, "Please enter a valid Google email address.", None
+
+    # Derive default username from email prefix (e.g. "bhuvanj06" from "bhuvanj06@gmail.com")
+    raw_prefix = email.split("@")[0]
+    base_username = "".join(c for c in raw_prefix if c.isalnum() or c == "_")
+    if not base_username or len(base_username) < 3:
+        base_username = f"user_{secrets.token_hex(3)}"
+
+    username = base_username
+
+    with DBContext() as db:
+        # Check if email is already registered and verified
+        db.execute("SELECT id, username FROM users WHERE lower(email) = lower(?) AND is_verified = 1", (email,))
+        verified_user = db.fetchone()
+        if verified_user:
+            return False, f"The account '{email}' is already registered and verified. Please log in directly!", None
+
+        # Check if username is already taken by another verified user; if so, make it unique
+        db.execute("SELECT id FROM users WHERE lower(username) = lower(?) AND is_verified = 1", (username,))
+        if db.fetchone():
+            username = f"{base_username}_{secrets.randbelow(900) + 100}"
+
+        # Clean up any stale unverified attempts matching this email or username
+        db.execute("DELETE FROM users WHERE (lower(email) = lower(?) OR lower(username) = lower(?)) AND is_verified = 0", (email, username))
+        db.commit()
+
+        # Random secure password for Google users (can still be updated or authenticated via Google)
+        temp_pwd = secrets.token_urlsafe(16)
+        salt = secrets.token_hex(16)
+        pwd_hash = _hash_password(temp_pwd, salt)
+        code = f"{secrets.randbelow(900000) + 100000}"
+        expires_at = time.time() + 900
+        now = time.time()
+
+        try:
+            db.execute("""
+                INSERT INTO users (username, email, password_hash, salt, is_verified, verification_code, code_expires_at, created_at)
+                VALUES (?, ?, ?, ?, 0, ?, ?, ?)
+            """, (username, email, pwd_hash, salt, code, expires_at, now))
+            db.commit()
+        except DBIntegrityError:
+            return False, "Could not reserve this Google account. Please try again.", None
+
+    _send_email_code(email, username, code)
+    return True, f"Verification code sent to {email}.", {
+        "email": email,
+        "username": username,
+        "code_hint": code,
+        "smtp_configured": bool(SMTP_SERVER and SMTP_USER),
+        "database": "supabase_postgres" if IS_POSTGRES else "sqlite",
+    }
+
 def verify_code(email: str, code: str) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
     """
     Verifies the 6-digit code received on the user's email.
