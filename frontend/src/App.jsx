@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Navbar } from "./components/Navbar";
 import { Sidebar } from "./components/Sidebar";
+import { SettingsModal } from "./components/SettingsModal";
 import { Chat } from "./pages/Chat";
 import { Lab } from "./pages/Lab";
 import { Evaluation } from "./pages/Evaluation";
@@ -22,6 +23,12 @@ export default function App() {
   const [authToken, setAuthToken] = useState(() => {
     return localStorage.getItem("nexus_auth_token") || null;
   });
+
+  // Settings Modal State
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  // Active feature section (e.g. "home", "proof", "inspector", "lab", "evaluation", "lexicon")
+  const [activeFeature, setActiveFeature] = useState("home");
 
   // Verify auth session on load
   useEffect(() => {
@@ -90,6 +97,11 @@ export default function App() {
     localStorage.setItem("nexus_auth_token", data.token);
   };
 
+  const handleUpdateUser = (updatedUser) => {
+    setCurrentUser(updatedUser);
+    localStorage.setItem("nexus_user", JSON.stringify(updatedUser));
+  };
+
   const handleLogout = () => {
     setCurrentUser(null);
     setAuthToken(null);
@@ -97,6 +109,7 @@ export default function App() {
     localStorage.removeItem("nexus_auth_token");
     setMessages([]);
     setActiveChatId(null);
+    setIsSettingsOpen(false);
   };
 
   const handleNewChat = () => {
@@ -111,6 +124,7 @@ export default function App() {
     setActiveChatId(newId);
     setMessages([]);
     setActivePage("chat");
+    setActiveFeature("home");
   };
 
   const handleDeleteChat = (id) => {
@@ -130,8 +144,20 @@ export default function App() {
   const handleSelectChat = (id) => {
     setActiveChatId(id);
     setActivePage("chat");
+    setActiveFeature("home");
     if (window.innerWidth < 768) {
       setIsSidebarOpen(false);
+    }
+  };
+
+  const handleSelectFeature = (featId) => {
+    setActiveFeature(featId);
+    if (featId === "lab") {
+      setActivePage("lab");
+    } else if (featId === "evaluation") {
+      setActivePage("evaluation");
+    } else {
+      setActivePage("chat");
     }
   };
 
@@ -296,33 +322,39 @@ export default function App() {
     return <Auth onAuthSuccess={handleAuthSuccess} />;
   }
 
-  // Once authenticated, render the home page with left panel, center conversation, and right features
+  // Once authenticated, render structured OpenDocs Voice style layout
   return (
-    <div className="min-h-screen flex flex-col bg-paper text-ink relative">
-      {/* Top Navbar */}
-      <Navbar
-        activePage={activePage}
-        onNavigate={setActivePage}
+    <div className="min-h-screen flex bg-paper text-ink relative overflow-hidden">
+      {/* 1. Left Structured Navigation Sidebar */}
+      <Sidebar
+        conversations={conversations}
+        activeId={activeChatId}
+        onSelectChat={handleSelectChat}
         onNewChat={handleNewChat}
-        hasMessages={messages.length > 0}
+        onDeleteChat={handleDeleteChat}
+        onRenameChat={handleRenameChat}
+        isOpen={isSidebarOpen}
+        onToggle={() => setIsSidebarOpen((v) => !v)}
+        currentUser={currentUser}
+        activeFeature={activeFeature}
+        onSelectFeature={handleSelectFeature}
+        onOpenSettings={() => setIsSettingsOpen(true)}
       />
 
-      <div className="flex-1 flex relative overflow-hidden">
-        {/* Left Side: Sidebar History & Profile */}
-        <Sidebar
-          conversations={conversations}
-          activeId={activeChatId}
-          onSelectChat={handleSelectChat}
-          onNewChat={handleNewChat}
-          onDeleteChat={handleDeleteChat}
-          onRenameChat={handleRenameChat}
-          isOpen={isSidebarOpen}
-          onToggle={() => setIsSidebarOpen((v) => !v)}
+      {/* 2. Main Content View Area */}
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+        {/* Top Navbar */}
+        <Navbar
           currentUser={currentUser}
-          onLogout={handleLogout}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+          activeBreadcrumb={
+            activeFeature === "home"
+              ? "NEXUS Living Voice"
+              : activeFeature.charAt(0).toUpperCase() + activeFeature.slice(1)
+          }
         />
 
-        {/* Center: Conversation Stream & Right: Features Panel */}
+        {/* Dynamic Center Page */}
         <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
           {activePage === "chat" && (
             <Chat
@@ -337,6 +369,8 @@ export default function App() {
               onUpdateTuningParams={(updates) =>
                 setTuningParams((prev) => ({ ...prev, ...updates }))
               }
+              selectedFeature={activeFeature}
+              onSelectFeature={handleSelectFeature}
             />
           )}
 
@@ -345,6 +379,16 @@ export default function App() {
           {activePage === "evaluation" && <Evaluation />}
         </main>
       </div>
+
+      {/* 3. Settings & Profile Modal (Contains Update Username and Log Out) */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        currentUser={currentUser}
+        authToken={authToken}
+        onUpdateUser={handleUpdateUser}
+        onLogout={handleLogout}
+      />
     </div>
   );
 }

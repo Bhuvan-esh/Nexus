@@ -1,94 +1,55 @@
-import React, { useState, useEffect } from "react";
-import { Sparkles, Sliders, BarChart2, MessageSquare } from "lucide-react";
+import React from "react";
+import { Search, Bell } from "lucide-react";
 
-export function Navbar({ activePage, onNavigate, onNewChat, hasMessages }) {
-  const [glyph, setGlyph] = useState("A");
-  const [morphing, setMorphing] = useState(false);
-
-  // Periodic subtle morph A -> ಕ
-  const handleMorph = () => {
-    setMorphing(true);
-    setTimeout(() => {
-      setGlyph((prev) => (prev === "A" ? "ಕ" : "A"));
-      setMorphing(false);
-    }, 150);
-  };
+export function Navbar({ currentUser, onOpenSettings, activeBreadcrumb = "NEXUS Living Voice" }) {
+  const userInitial = currentUser?.username?.[0]?.toUpperCase() || "U";
+  const userTag = currentUser?.username ? currentUser.username.substring(0, 2).toLowerCase() : "nx";
 
   return (
-    <header className="h-16 border-b border-ink/8 px-6 flex items-center justify-between bg-card/60 backdrop-blur-md sticky top-0 z-30">
-      {/* Brand & Animated Glyph Mark */}
-      <div className="flex items-center gap-3">
-        <button
-          onClick={handleMorph}
-          className="w-9 h-9 rounded-lg bg-card border border-ink/8 flex items-center justify-center shadow-card hover:border-accent/40 transition-colors"
-          title="NEXUS Brand Mark (Click to toggle A ➔ ಕ)"
-        >
-          <span
-            className={`font-serif text-lg font-bold text-accent transition-opacity duration-150 ${
-              morphing ? "opacity-0" : "opacity-100"
-            }`}
-          >
-            {glyph}
-          </span>
-        </button>
-
-        <div className="flex items-center gap-2">
-          <span className="font-serif text-xl font-semibold tracking-wide text-ink">
-            NEXUS
-          </span>
-          <span className="text-[10px] font-mono tracking-wider uppercase bg-code text-ink/70 px-2 py-0.5 rounded-full border border-ink/8">
-            Phonetic Engine
-          </span>
+    <header className="h-14 border-b border-ink/8 px-4 sm:px-6 flex items-center justify-between bg-card/70 backdrop-blur-md sticky top-0 z-20">
+      {/* 1. Search Bar with Shortcut (Styled like OpenDocs Voice) */}
+      <div className="flex items-center gap-3 w-72 sm:w-80">
+        <div className="relative w-full">
+          <Search className="w-3.5 h-3.5 text-ink/40 absolute left-3 top-2.5" />
+          <input
+            type="text"
+            placeholder="Search anything..."
+            className="w-full bg-paper border border-ink/8 rounded-xl py-1.5 pl-8 pr-14 text-xs text-ink placeholder:text-ink/40 focus:outline-none focus:border-accent"
+          />
+          <kbd className="absolute right-2.5 top-2 text-[9px] font-mono text-ink/40 bg-card border border-ink/8 px-1.5 py-0.5 rounded shadow-xs">
+            Ctrl K
+          </kbd>
         </div>
       </div>
 
-      {/* Navigation tabs */}
-      <nav className="flex items-center gap-1 bg-code/50 p-1 rounded-xl border border-ink/8">
-        <button
-          onClick={() => onNavigate("chat")}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-            activePage === "chat" || activePage === "home"
-              ? "bg-card text-ink shadow-sm"
-              : "text-ink/60 hover:text-ink"
-          }`}
-        >
-          <MessageSquare className="w-3.5 h-3.5" />
-          Chat
-        </button>
-        <button
-          onClick={() => onNavigate("lab")}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-            activePage === "lab"
-              ? "bg-card text-ink shadow-sm"
-              : "text-ink/60 hover:text-ink"
-          }`}
-        >
-          <Sliders className="w-3.5 h-3.5" />
-          Lab
-        </button>
-        <button
-          onClick={() => onNavigate("evaluation")}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-            activePage === "evaluation"
-              ? "bg-card text-ink shadow-sm"
-              : "text-ink/60 hover:text-ink"
-          }`}
-        >
-          <BarChart2 className="w-3.5 h-3.5" />
-          Benchmark
-        </button>
-      </nav>
+      {/* 2. Center/Right Breadcrumb */}
+      <div className="hidden md:flex items-center gap-1.5 text-xs text-ink/50 font-medium">
+        <span>Workspace</span>
+        <span>/</span>
+        <span className="text-ink font-semibold">{activeBreadcrumb}</span>
+      </div>
 
-      {/* Quick Action */}
-      <div className="flex items-center gap-2">
-        {hasMessages && (
-          <button
-            onClick={onNewChat}
-            className="text-xs font-medium px-3 py-1.5 rounded-pill bg-card border border-ink/8 text-ink hover:bg-paper transition-colors"
-          >
-            New Transliteration
-          </button>
-        )}
+      {/* 3. Notifications & User Avatar Button */}
+      <div className="flex items-center gap-3">
+        {/* Notification Bell */}
+        <button
+          className="relative p-1.5 rounded-lg text-ink/50 hover:text-ink hover:bg-paper transition-colors"
+          title="Notifications"
+        >
+          <Bell className="w-4 h-4" />
+          <span className="absolute top-1 right-1 w-3.5 h-3.5 bg-accent text-card text-[9px] font-bold rounded-full flex items-center justify-center">
+            0
+          </span>
+        </button>
+
+        {/* User Avatar Circle (Opens Settings on click) */}
+        <button
+          onClick={onOpenSettings}
+          className="w-8 h-8 rounded-full bg-accent/15 text-accent border border-accent/25 flex items-center justify-center font-bold text-xs hover:scale-105 transition-transform shadow-xs"
+          title="Account Settings & Profile"
+        >
+          {userTag}
+        </button>
       </div>
     </header>
   );

@@ -142,4 +142,20 @@ export async function getCurrentUser(token) {
   return await res.json();
 }
 
+export async function updateUserProfile(token, newUsername) {
+  const res = await fetch(`${BASE_URL}/api/auth/profile/update`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ new_username: newUsername }),
+  });
+  const data = await res.json().catch(() => ({ detail: res.statusText }));
+  if (!res.ok) {
+    throw new Error(data.detail || "Failed to update profile.");
+  }
+  return data;
+}
+
 export { BASE_URL };

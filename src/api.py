@@ -19,6 +19,7 @@ from src.auth import (
     login_with_credentials,
     login_with_google_strict,
     validate_token,
+    update_user_profile,
 )
 
 app = FastAPI(
@@ -62,6 +63,9 @@ class GoogleLoginRequest(BaseModel):
 
 class GoogleSignUpRequest(BaseModel):
     email: str
+
+class UpdateProfileRequest(BaseModel):
+    new_username: str
 
 # ----------------- General Endpoints -----------------
 @app.get("/api/health")
@@ -154,6 +158,16 @@ def api_me(authorization: Optional[str] = Header(None)):
     if not user:
         raise HTTPException(status_code=401, detail="Session expired or invalid. Please log in.")
     return {"user": user}
+
+@app.post("/api/auth/profile/update")
+def api_update_profile(payload: UpdateProfileRequest, authorization: Optional[str] = Header(None)):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing authorization header.")
+    token = authorization.replace("Bearer ", "").strip()
+    success, msg, data = update_user_profile(token=token, new_username=payload.new_username)
+    if not success:
+        raise HTTPException(status_code=400, detail=msg)
+    return {"success": True, "message": msg, "user": data}
 
 # ----------------- WebSocket Streaming -----------------
 @app.websocket("/ws/transliterate")

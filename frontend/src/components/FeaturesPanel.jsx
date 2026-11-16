@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Sliders, ShieldCheck, Check, Info, BarChart2, Activity, ChevronRight, X } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Sliders, ShieldCheck, Check, Info, BarChart2, Search, BookMarked, Code, ExternalLink, X } from "lucide-react";
 
 export function FeaturesPanel({
   activeProofMsg,
@@ -10,8 +10,22 @@ export function FeaturesPanel({
   gamma = 0.0,
   tau = 0.70,
   onUpdateParams,
+  selectedTab = "proof",
+  onTabChange,
 }) {
-  const [activeTab, setActiveTab] = useState("proof"); // "proof" | "inspector" | "tuning" | "benchmarks"
+  const [internalTab, setInternalTab] = useState(selectedTab);
+
+  useEffect(() => {
+    if (selectedTab) {
+      setInternalTab(selectedTab);
+    }
+  }, [selectedTab]);
+
+  const activeTab = internalTab;
+  const setActiveTab = (tab) => {
+    setInternalTab(tab);
+    if (onTabChange) onTabChange(tab);
+  };
 
   const stages = activeProofMsg?.stages || [];
   const completedCount = stages.length;
@@ -19,49 +33,30 @@ export function FeaturesPanel({
   return (
     <aside className="w-80 lg:w-96 bg-card border-l border-ink/8 flex flex-col h-full overflow-hidden shadow-sm">
       {/* Panel Tab Header */}
-      <div className="p-3 border-b border-ink/8 flex items-center justify-between bg-code/40">
-        <div className="flex items-center gap-1 overflow-x-auto">
-          <button
-            onClick={() => setActiveTab("proof")}
-            className={`px-2.5 py-1 rounded-md text-[11px] font-mono font-semibold transition-all ${
-              activeTab === "proof"
-                ? "bg-card text-ink shadow-sm border border-ink/8"
-                : "text-ink/60 hover:text-ink"
-            }`}
-          >
-            Proof
-          </button>
-          <button
-            onClick={() => setActiveTab("inspector")}
-            className={`px-2.5 py-1 rounded-md text-[11px] font-mono font-semibold transition-all relative ${
-              activeTab === "inspector"
-                ? "bg-card text-ink shadow-sm border border-ink/8"
-                : "text-ink/60 hover:text-ink"
-            }`}
-          >
-            Inspector
-            {inspectedToken && <span className="w-1.5 h-1.5 rounded-full bg-accent absolute top-1 right-1" />}
-          </button>
-          <button
-            onClick={() => setActiveTab("tuning")}
-            className={`px-2.5 py-1 rounded-md text-[11px] font-mono font-semibold transition-all ${
-              activeTab === "tuning"
-                ? "bg-card text-ink shadow-sm border border-ink/8"
-                : "text-ink/60 hover:text-ink"
-            }`}
-          >
-            Tuning
-          </button>
-          <button
-            onClick={() => setActiveTab("benchmarks")}
-            className={`px-2.5 py-1 rounded-md text-[11px] font-mono font-semibold transition-all ${
-              activeTab === "benchmarks"
-                ? "bg-card text-ink shadow-sm border border-ink/8"
-                : "text-ink/60 hover:text-ink"
-            }`}
-          >
-            Metrics
-          </button>
+      <div className="p-2.5 border-b border-ink/8 flex items-center justify-between bg-code/30">
+        <div className="flex items-center gap-1 overflow-x-auto no-scrollbar w-full">
+          {[
+            { id: "proof", label: "Proof" },
+            { id: "inspector", label: "Inspector" },
+            { id: "lab", label: "Tuning" },
+            { id: "evaluation", label: "Metrics" },
+            { id: "lexicon", label: "Lexicon" },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-mono font-semibold transition-all flex-shrink-0 relative ${
+                activeTab === tab.id
+                  ? "bg-card text-ink shadow-xs border border-ink/10"
+                  : "text-ink/60 hover:text-ink"
+              }`}
+            >
+              {tab.label}
+              {tab.id === "inspector" && inspectedToken && (
+                <span className="w-1.5 h-1.5 rounded-full bg-accent absolute top-1 right-1" />
+              )}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -74,7 +69,7 @@ export function FeaturesPanel({
               <span className="text-[10px] font-mono uppercase tracking-wider text-ink/50 font-bold">
                 7-Stage Pipeline Trace
               </span>
-              <span className="text-[10px] font-mono text-protected bg-protected/10 px-2 py-0.5 rounded-full border border-protected/20">
+              <span className="text-[10px] font-mono text-protected bg-protected/10 px-2 py-0.5 rounded-full border border-protected/20 font-semibold">
                 {completedCount}/7 Verified
               </span>
             </div>
@@ -93,7 +88,7 @@ export function FeaturesPanel({
 
             {!activeProofMsg ? (
               <div className="p-8 text-center bg-paper/60 rounded-card border border-ink/6 text-xs text-ink/50">
-                Send a transliteration in the conversation to view its real-time 7-stage proof trace here.
+                Send a transliteration in the studio to view its real-time 7-stage proof trace here.
               </div>
             ) : (
               <div className="space-y-2">
@@ -114,7 +109,7 @@ export function FeaturesPanel({
                       key={idx}
                       className={`p-2.5 rounded-card border text-xs transition-all ${
                         isDone
-                          ? "bg-paper border-ink/8 shadow-sm"
+                          ? "bg-paper border-ink/8 shadow-xs"
                           : "bg-paper/30 border-ink/5 opacity-50"
                       }`}
                     >
@@ -235,7 +230,7 @@ export function FeaturesPanel({
         )}
 
         {/* ---------------- TAB 3: TUNING LAB ---------------- */}
-        {activeTab === "tuning" && (
+        {activeTab === "lab" && (
           <div className="space-y-4 animate-fade-in text-xs">
             <span className="text-[10px] font-mono uppercase tracking-wider text-ink/50 font-bold block">
               Selection Formulation Weights
@@ -296,7 +291,7 @@ export function FeaturesPanel({
         )}
 
         {/* ---------------- TAB 4: BENCHMARKS ---------------- */}
-        {activeTab === "benchmarks" && (
+        {activeTab === "evaluation" && (
           <div className="space-y-3 animate-fade-in text-xs">
             <span className="text-[10px] font-mono uppercase tracking-wider text-ink/50 font-bold block">
               Empirical Accuracy Targets
@@ -316,6 +311,34 @@ export function FeaturesPanel({
                 <span className="font-serif text-lg font-bold text-ink">{m.value}</span>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* ---------------- TAB 5: PRESERVED LEXICON ---------------- */}
+        {activeTab === "lexicon" && (
+          <div className="space-y-3 animate-fade-in text-xs">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-ink/50 font-bold block">
+              Preserved Technical Spans
+            </span>
+            <p className="text-[11px] text-ink/60">
+              Technical tokens, code entities, and URLs are preserved byte-for-byte with cryptographic SHA-256 verification.
+            </p>
+
+            <div className="space-y-2">
+              {[
+                { term: "https://docs.python.org", kind: "URL", status: "Preserved" },
+                { term: "import React", kind: "Code Keyword", status: "Preserved" },
+                { term: "bhuvanj06@gmail.com", kind: "Email", status: "Preserved" },
+                { term: "0x7FFF_FFFF", kind: "Hex/Address", status: "Preserved" },
+              ].map((item, idx) => (
+                <div key={idx} className="p-2.5 bg-paper rounded-lg border border-ink/8 flex items-center justify-between font-mono text-[11px]">
+                  <span className="text-ink truncate max-w-[160px]">{item.term}</span>
+                  <span className="text-[9px] bg-protected/10 text-protected font-bold px-1.5 py-0.5 rounded">
+                    {item.kind}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

@@ -487,3 +487,36 @@ def validate_token(token: str) -> Optional[Dict[str, Any]]:
         if row:
             return {"id": row[0], "username": row[1], "email": row[2]}
     return None
+
+def update_user_profile(token: str, new_username: str) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
+    """
+    Updates the username of the authenticated user in Supabase PostgreSQL / SQLite.
+    """
+    new_username = new_username.strip()
+    if not new_username:
+        return False, "Username cannot be empty.", None
+    if len(new_username) < 3:
+        return False, "Username must be at least 3 characters long.", None
+    if not new_username.replace("_", "").isalnum():
+        return False, "Username may only contain letters, numbers, and underscores.", None
+
+    user = validate_token(token)
+    if not user:
+        return False, "Session expired or invalid. Please log in again.", None
+
+    user_id = user["id"]
+
+    with DBContext() as db:
+        # Check if the requested username is already taken by another verified user
+        db.execute("SELECT id FROM users WHERE lower(username) = lower(?) AND id != ? AND is_verified = 1", (new_username, user_id))
+        if db.fetchone():
+            return False, f"The username '{new_username}' is already taken. Please choose another.", None
+
+        db.execute("UPDATE users SET username = ? WHERE id = ?", (new_username, user_id))
+        db.commit()
+
+    return True, "Profile updated successfully!", {
+        "id": user_id,
+        "username": new_username,
+        "email": user["email"],
+    }
