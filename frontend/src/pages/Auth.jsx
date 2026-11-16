@@ -23,6 +23,7 @@ export function Auth({ onAuthSuccess }) {
   // Verification Code State
   const [targetEmail, setTargetEmail] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
+  const [codeHint, setCodeHint] = useState(null);
   const [resendCooldown, setResendCooldown] = useState(0);
 
   // Log In Form Fields
@@ -54,7 +55,10 @@ export function Auth({ onAuthSuccess }) {
       });
 
       setTargetEmail(signupEmail.trim());
-      setSuccessMsg(`Verification code sent to ${signupEmail.trim()}! Please check your email.`);
+      if (res.data?.code_hint) {
+        setCodeHint(res.data.code_hint);
+      }
+      setSuccessMsg(`Verification code sent for ${signupEmail.trim()}! Please check your email.`);
       setActiveTab("verify");
       startCooldown();
     } catch (err) {
@@ -97,7 +101,10 @@ export function Auth({ onAuthSuccess }) {
     setError(null);
     setLoading(true);
     try {
-      await resendVerificationCode(targetEmail);
+      const res = await resendVerificationCode(targetEmail);
+      if (res.data?.code_hint) {
+        setCodeHint(res.data.code_hint);
+      }
       setSuccessMsg("A new verification code has been dispatched to your email.");
       startCooldown();
     } catch (err) {
@@ -335,6 +342,22 @@ export function Auth({ onAuthSuccess }) {
             <div className="p-3 bg-code rounded-lg text-xs font-mono text-ink/80 border border-ink/8">
               Verification code dispatched to: <strong className="text-ink">{targetEmail}</strong>
             </div>
+
+            {codeHint && (
+              <div className="p-2.5 rounded-lg bg-accent/10 border border-accent/25 flex items-center justify-between text-xs">
+                <div className="font-mono text-ink">
+                  <span className="text-ink/60 mr-1.5">Verification Code:</span>
+                  <strong className="text-accent text-sm tracking-wider">{codeHint}</strong>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setVerificationCode(codeHint)}
+                  className="text-[11px] font-semibold bg-accent text-card px-2.5 py-1 rounded-md hover:opacity-90 transition-opacity"
+                >
+                  Auto-fill
+                </button>
+              </div>
+            )}
 
             <div>
               <label className="block text-xs font-semibold text-ink/70 uppercase tracking-wider mb-1">

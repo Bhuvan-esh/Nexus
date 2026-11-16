@@ -99,10 +99,10 @@ def api_verify(payload: VerifyRequest):
 @app.post("/api/auth/resend")
 def api_resend(payload: ResendRequest):
     """Resends a fresh verification code to the mail."""
-    success, msg = resend_code(email=payload.email)
+    success, msg, data = resend_code(email=payload.email)
     if not success:
         raise HTTPException(status_code=400, detail=msg)
-    return {"success": True, "message": msg}
+    return {"success": True, "message": msg, "data": data}
 
 @app.post("/api/auth/login")
 def api_login(payload: LoginRequest):

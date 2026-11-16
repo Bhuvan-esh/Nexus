@@ -128,16 +128,19 @@ def register_user(username: str, email: str, password: str, confirm_password: st
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
 
-        # Check username uniqueness across verified users
+        # 1. Check if verified account exists with this email
+        cursor.execute("SELECT id FROM users WHERE lower(email) = lower(?) AND is_verified = 1", (email,))
+        if cursor.fetchone():
+            return False, f"An account with email '{email}' is already registered. Please log in.", None
+
+        # 2. Check if verified account exists with this username
         cursor.execute("SELECT id FROM users WHERE lower(username) = lower(?) AND is_verified = 1", (username,))
         if cursor.fetchone():
             return False, f"The username '{username}' is already taken. Please choose another.", None
 
-        # Check email uniqueness across verified users
-        cursor.execute("SELECT id, is_verified FROM users WHERE lower(email) = lower(?)", (email,))
-        existing = cursor.fetchone()
-        if existing and existing[1]:
-            return False, f"An account with email '{email}' is already registered. Please log in.", None
+        # 3. Clean up any stale unverified attempts matching either this email OR this username
+        cursor.execute("DELETE FROM users WHERE (lower(email) = lower(?) OR lower(username) = lower(?)) AND is_verified = 0", (email, username))
+        conn.commit()
 
         code = f"{secrets.randbelow(900000) + 100000}"
         expires_at = time.time() + 900
@@ -145,25 +148,21 @@ def register_user(username: str, email: str, password: str, confirm_password: st
         pwd_hash = _hash_password(password, salt)
         now = time.time()
 
-        if existing:
-            # Update pending unverified record
-            cursor.execute("""
-                UPDATE users SET username = ?, password_hash = ?, salt = ?, verification_code = ?, code_expires_at = ?
-                WHERE id = ?
-            """, (username, pwd_hash, salt, code, expires_at, existing[0]))
-        else:
-            # Insert new record
+        try:
             cursor.execute("""
                 INSERT INTO users (username, email, password_hash, salt, is_verified, verification_code, code_expires_at, created_at)
                 VALUES (?, ?, ?, ?, 0, ?, ?, ?)
             """, (username, email, pwd_hash, salt, code, expires_at, now))
-        conn.commit()
+            conn.commit()
+        except sqlite3.IntegrityError as err:
+            return False, "This username or email is currently reserved. Please choose another.", None
 
     _send_email_code(email, username, code)
     return True, f"Verification code sent to {email}.", {
         "email": email,
         "username": username,
         "code_hint": code,
+        "smtp_configured": bool(SMTP_SERVER and SMTP_USER),
     }
 
 def verify_code(email: str, code: str) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
@@ -211,16 +210,16 @@ def verify_code(email: str, code: str) -> Tuple[bool, str, Optional[Dict[str, An
             "email": email,
         }
 
-def resend_code(email: str) -> Tuple[bool, str]:
+def resend_code(email: str) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
     email = email.strip().lower()
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT id, username, is_verified FROM users WHERE lower(email) = lower(?)", (email,))
         row = cursor.fetchone()
         if not row:
-            return False, "No registration found for this email."
+            return False, "No registration found for this email.", None
         if row[2]:
-            return False, "This email is already verified. Please log in directly."
+            return False, "This email is already verified. Please log in directly.", None
 
         username = row[1]
         code = f"{secrets.randbelow(900000) + 100000}"
@@ -229,7 +228,11 @@ def resend_code(email: str) -> Tuple[bool, str]:
         conn.commit()
 
     _send_email_code(email, username, code)
-    return True, f"New verification code sent to {email}."
+    return True, f"New verification code sent to {email}.", {
+        "email": email,
+        "code_hint": code,
+        "smtp_configured": bool(SMTP_SERVER and SMTP_USER),
+    }
 
 # ----------------- LOG IN (CREDENTIALS & STRICT GOOGLE) -----------------
 
