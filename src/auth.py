@@ -1,6 +1,6 @@
 """
 NEXUS Authentication & Verification Service
-SQLite-backed persistent user management with real email verification and Google 3-step onboarding.
+SQLite-backed persistent user management with real email verification.
 """
 
 import os
@@ -28,10 +28,10 @@ def init_db():
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT UNIQUE,
+                username TEXT UNIQUE NOT NULL,
                 email TEXT UNIQUE NOT NULL,
-                password_hash TEXT,
-                salt TEXT,
+                password_hash TEXT NOT NULL,
+                salt TEXT NOT NULL,
                 is_verified INTEGER DEFAULT 0,
                 verification_code TEXT,
                 code_expires_at REAL,
@@ -54,28 +54,26 @@ init_db()
 def _hash_password(password: str, salt: str) -> str:
     return hashlib.sha256((salt + password).encode("utf-8")).hexdigest()
 
-def _send_email_code(email: str, code: str, username: Optional[str] = None) -> bool:
-    """
-    Sends 6-digit verification code via SMTP if configured,
-    and logs clearly for verification in local development.
-    """
+def _send_email_code(email: str, username: str, code: str) -> bool:
     greeting = f"Hello {username}," if username else "Hello,"
     body_text = f"""{greeting}
 
-Welcome to NEXUS! To verify your email and activate your account, please use your 6-digit verification code:
+Welcome to NEXUS! To complete your registration and break language barriers, please verify your email.
+
+Your 6-digit verification code is:
 
     {code}
 
 This code expires in 15 minutes.
 
-If you did not request this verification, please disregard this email.
+If you did not request this, please ignore this email.
 
 — The NEXUS Team
 """
 
     print(f"\n=======================================================")
     print(f"📧 [NEXUS EMAIL VERIFICATION]")
-    print(f"To: {email}")
+    print(f"To: {email} ({username})")
     print(f"Verification Code: >>> {code} <<<")
     print(f"Expires in 15 minutes")
     print(f"=======================================================\n")
@@ -99,87 +97,18 @@ If you did not request this verification, please disregard this email.
         print(f"⚠️ SMTP Send Failed: {e}")
         return False
 
-# ----------------- 3-STEP SIGN UP FLOW -----------------
+# ----------------- SIGN UP (ALL 4 FIELDS UPFRONT) -----------------
 
-def start_email_signup(email: str) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
+def register_user(username: str, email: str, password: str, confirm_password: str) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
     """
-    Step 1 of Sign Up: User enters their email (or Google email).
-    Sends a 6-digit verification code to the mail.
+    Sign Up asking upfront:
+    1. Username
+    2. Enter your mail
+    3. Password
+    4. Confirm password
     """
-    email = email.strip().lower()
-    if not email or "@" not in email or "." not in email:
-        return False, "Please enter a valid email address.", None
-
-    with sqlite3.connect(DB_PATH) as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT id, username, is_verified FROM users WHERE email = ?", (email,))
-        row = cursor.fetchone()
-
-        if row and row[2]:
-            return False, f"An account with email '{email}' is already registered. Please log in directly.", None
-
-        code = f"{secrets.randbelow(900000) + 100000}"
-        expires_at = time.time() + 900
-        salt = secrets.token_hex(16)
-        now = time.time()
-
-        if row:
-            # Update pending unverified record
-            cursor.execute("""
-                UPDATE users SET verification_code = ?, code_expires_at = ? WHERE email = ?
-            """, (code, expires_at, email))
-        else:
-            # Insert pending record
-            cursor.execute("""
-                INSERT INTO users (username, email, password_hash, salt, is_verified, verification_code, code_expires_at, created_at)
-                VALUES (NULL, ?, '', ?, 0, ?, ?, ?)
-            """, (email, salt, code, expires_at, now))
-        conn.commit()
-
-    _send_email_code(email, code)
-    return True, f"Verification code sent to {email}.", {"email": email, "code_hint": code}
-
-def verify_email_code(email: str, code: str) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
-    """
-    Step 2 of Sign Up: User enters the verification code from their email.
-    """
-    email = email.strip().lower()
-    code = code.strip()
-
-    with sqlite3.connect(DB_PATH) as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT id, username, verification_code, code_expires_at, is_verified FROM users WHERE email = ?", (email,))
-        row = cursor.fetchone()
-
-        if not row:
-            return False, "No registration in progress for this email. Please enter your email first.", None
-
-        user_id, username, stored_code, expires_at, is_verified = row
-
-        if time.time() > expires_at:
-            return False, "Verification code has expired. Please request a new code.", None
-
-        if stored_code != code:
-            return False, "Invalid verification code. Please check your email and try again.", None
-
-        # Code is correct! Mark code as consumed
-        cursor.execute("UPDATE users SET verification_code = NULL WHERE id = ?", (user_id,))
-        conn.commit()
-
-        # Needs username if username is not yet set
-        needs_username = (username is None or username.strip() == "")
-        return True, "Email verified successfully!", {
-            "email": email,
-            "needs_username": needs_username,
-            "username": username or "",
-        }
-
-def complete_signup_username(email: str, username: str, password: Optional[str] = None) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
-    """
-    Step 3 of Sign Up: After verification code is confirmed, user provides their chosen unique username.
-    """
-    email = email.strip().lower()
     username = username.strip()
+    email = email.strip().lower()
 
     if not username:
         return False, "Username is required.", None
@@ -188,69 +117,127 @@ def complete_signup_username(email: str, username: str, password: Optional[str] 
     if not username.replace("_", "").isalnum():
         return False, "Username may only contain letters, numbers, and underscores.", None
 
+    if not email or "@" not in email or "." not in email:
+        return False, "Please enter a valid email address.", None
+
+    if len(password) < 6:
+        return False, "Password must be at least 6 characters long.", None
+    if password != confirm_password:
+        return False, "Passwords do not match. Please verify both entries.", None
+
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
-        # Verify username is unique
-        cursor.execute("SELECT id FROM users WHERE lower(username) = lower(?) AND email != ?", (username, email))
+
+        # Check username uniqueness across verified users
+        cursor.execute("SELECT id FROM users WHERE lower(username) = lower(?) AND is_verified = 1", (username,))
         if cursor.fetchone():
             return False, f"The username '{username}' is already taken. Please choose another.", None
 
-        cursor.execute("SELECT id, salt FROM users WHERE email = ?", (email,))
-        row = cursor.fetchone()
-        if not row:
-            return False, "Registration session not found. Please start sign up again.", None
+        # Check email uniqueness across verified users
+        cursor.execute("SELECT id, is_verified FROM users WHERE lower(email) = lower(?)", (email,))
+        existing = cursor.fetchone()
+        if existing and existing[1]:
+            return False, f"An account with email '{email}' is already registered. Please log in.", None
 
-        user_id, salt = row
-        pwd_hash = _hash_password(password or "google_auth_default", salt)
+        code = f"{secrets.randbelow(900000) + 100000}"
+        expires_at = time.time() + 900
+        salt = secrets.token_hex(16)
+        pwd_hash = _hash_password(password, salt)
+        now = time.time()
 
-        # Mark user fully verified and set unique username
-        cursor.execute("""
-            UPDATE users SET username = ?, password_hash = ?, is_verified = 1 WHERE id = ?
-        """, (username, pwd_hash, user_id))
-
-        token = secrets.token_hex(32)
-        cursor.execute("INSERT INTO sessions VALUES (?, ?, ?, ?)", (token, user_id, time.time(), time.time() + 86400 * 7))
+        if existing:
+            # Update pending unverified record
+            cursor.execute("""
+                UPDATE users SET username = ?, password_hash = ?, salt = ?, verification_code = ?, code_expires_at = ?
+                WHERE id = ?
+            """, (username, pwd_hash, salt, code, expires_at, existing[0]))
+        else:
+            # Insert new record
+            cursor.execute("""
+                INSERT INTO users (username, email, password_hash, salt, is_verified, verification_code, code_expires_at, created_at)
+                VALUES (?, ?, ?, ?, 0, ?, ?, ?)
+            """, (username, email, pwd_hash, salt, code, expires_at, now))
         conn.commit()
 
-        return True, f"Welcome to NEXUS, {username}!", {"token": token, "username": username, "email": email}
+    _send_email_code(email, username, code)
+    return True, f"Verification code sent to {email}.", {
+        "email": email,
+        "username": username,
+        "code_hint": code,
+    }
 
-# ----------------- LOGIN FLOW -----------------
-
-def login_with_google_strict(email: str) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
+def verify_code(email: str, code: str) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
     """
-    Google Log In: ONLY works if the email has already been registered!
+    Verifies the 6-digit code received on the user's email.
     """
     email = email.strip().lower()
-    if not email:
-        return False, "Google account email is required.", None
+    code = code.strip()
 
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT id, username, email, is_verified 
+            SELECT id, username, verification_code, code_expires_at, is_verified 
             FROM users 
             WHERE lower(email) = lower(?)
         """, (email,))
         row = cursor.fetchone()
 
         if not row:
-            return False, f"No registered account found for '{email}'. Please sign up with Google first.", None
+            return False, "No registration in progress found for this email.", None
 
-        user_id, username, email_val, is_verified = row
+        user_id, username, stored_code, expires_at, is_verified = row
 
-        if not is_verified or not username:
-            return False, "Account registration is incomplete. Please complete email verification and username setup.", None
+        if is_verified:
+            token = secrets.token_hex(32)
+            cursor.execute("INSERT INTO sessions VALUES (?, ?, ?, ?)", (token, user_id, time.time(), time.time() + 86400 * 7))
+            conn.commit()
+            return True, "Email verified successfully!", {"token": token, "username": username, "email": email}
 
-        # Successful Google login
+        if time.time() > expires_at:
+            return False, "Verification code has expired. Please request a new code.", None
+
+        if stored_code != code:
+            return False, "Invalid verification code. Please check your email and try again.", None
+
+        # Correct code: mark verified & create session
+        cursor.execute("UPDATE users SET is_verified = 1, verification_code = NULL WHERE id = ?", (user_id,))
         token = secrets.token_hex(32)
         cursor.execute("INSERT INTO sessions VALUES (?, ?, ?, ?)", (token, user_id, time.time(), time.time() + 86400 * 7))
         conn.commit()
 
-        return True, f"Welcome back, {username}!", {"token": token, "username": username, "email": email_val}
+        return True, "Email verified successfully! You are now logged in.", {
+            "token": token,
+            "username": username,
+            "email": email,
+        }
+
+def resend_code(email: str) -> Tuple[bool, str]:
+    email = email.strip().lower()
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, username, is_verified FROM users WHERE lower(email) = lower(?)", (email,))
+        row = cursor.fetchone()
+        if not row:
+            return False, "No registration found for this email."
+        if row[2]:
+            return False, "This email is already verified. Please log in directly."
+
+        username = row[1]
+        code = f"{secrets.randbelow(900000) + 100000}"
+        expires_at = time.time() + 900
+        cursor.execute("UPDATE users SET verification_code = ?, code_expires_at = ? WHERE id = ?", (code, expires_at, row[0]))
+        conn.commit()
+
+    _send_email_code(email, username, code)
+    return True, f"New verification code sent to {email}."
+
+# ----------------- LOG IN (CREDENTIALS & STRICT GOOGLE) -----------------
 
 def login_with_credentials(identifier: str, password: str) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
     """
-    Standard login with Username or Email + Password.
+    Log In:
+    Enter your mail / Username (Make sure the username should be unique)
+    Enter your password
     """
     identifier = identifier.strip()
     if not identifier:
@@ -275,14 +262,45 @@ def login_with_credentials(identifier: str, password: str) -> Tuple[bool, str, O
         if _hash_password(password, salt) != pwd_hash:
             return False, "Invalid username/email or password.", None
 
-        if not is_verified or not username:
-            return False, "Email has not been verified yet. Please complete verification.", {"needs_verification": True, "email": email}
+        if not is_verified:
+            return False, "Email has not been verified yet. Please complete verification.", {"needs_verification": True, "email": email, "username": username}
 
         token = secrets.token_hex(32)
         cursor.execute("INSERT INTO sessions VALUES (?, ?, ?, ?)", (token, user_id, time.time(), time.time() + 86400 * 7))
         conn.commit()
 
         return True, f"Welcome back, {username}!", {"token": token, "username": username, "email": email}
+
+def login_with_google_strict(email: str) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
+    """
+    Sign in with Google: ONLY works if the mail has already been registered!
+    """
+    email = email.strip().lower()
+    if not email:
+        return False, "Google account email is required.", None
+
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT id, username, email, is_verified 
+            FROM users 
+            WHERE lower(email) = lower(?)
+        """, (email,))
+        row = cursor.fetchone()
+
+        if not row:
+            return False, f"No registered account found for '{email}'. Please sign up first.", None
+
+        user_id, username, email_val, is_verified = row
+
+        if not is_verified:
+            return False, "Account registration is incomplete. Please verify your email first.", None
+
+        token = secrets.token_hex(32)
+        cursor.execute("INSERT INTO sessions VALUES (?, ?, ?, ?)", (token, user_id, time.time(), time.time() + 86400 * 7))
+        conn.commit()
+
+        return True, f"Welcome back, {username}!", {"token": token, "username": username, "email": email_val}
 
 def validate_token(token: str) -> Optional[Dict[str, Any]]:
     if not token:

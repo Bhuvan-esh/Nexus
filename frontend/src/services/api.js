@@ -28,25 +28,34 @@ export async function transliterateText(text) {
   return await res.json();
 }
 
-// ---------------- 3-Step Authentication APIs ----------------
+// ---------------- Authentication APIs ----------------
 
-// Step 1: User enters email / Google signup email -> code sent to mail
-export async function startEmailSignup(email) {
-  const res = await fetch(`${BASE_URL}/api/auth/start-signup`, {
+// Sign Up asking upfront:
+// - Username
+// - Enter your mail
+// - Password
+// - Confirm password
+export async function signUpUser({ username, email, password, confirmPassword }) {
+  const res = await fetch(`${BASE_URL}/api/auth/signup`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email }),
+    body: JSON.stringify({
+      username,
+      email,
+      password,
+      confirm_password: confirmPassword,
+    }),
   });
   const data = await res.json().catch(() => ({ detail: res.statusText }));
   if (!res.ok) {
-    throw new Error(data.detail || "Failed to start sign up.");
+    throw new Error(data.detail || "Sign up failed");
   }
   return data;
 }
 
-// Step 2: User enters verification code received on mail
-export async function verifyEmailCode(email, code) {
-  const res = await fetch(`${BASE_URL}/api/auth/verify-code`, {
+// Verification: User enters 6-digit code received on mail
+export async function verifyEmailCode({ email, code }) {
+  const res = await fetch(`${BASE_URL}/api/auth/verify`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, code }),
@@ -58,21 +67,43 @@ export async function verifyEmailCode(email, code) {
   return data;
 }
 
-// Step 3: Once verified, user chooses their unique username
-export async function completeSignupUsername(email, username, password) {
-  const res = await fetch(`${BASE_URL}/api/auth/complete-signup`, {
+export async function resendVerificationCode(email) {
+  const res = await fetch(`${BASE_URL}/api/auth/resend`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, username, password }),
+    body: JSON.stringify({ email }),
   });
   const data = await res.json().catch(() => ({ detail: res.statusText }));
   if (!res.ok) {
-    throw new Error(data.detail || "Failed to finalize registration.");
+    throw new Error(data.detail || "Failed to resend code");
   }
   return data;
 }
 
-// Google Log In: ONLY works if the email has already been registered!
+// Log In:
+// - Enter your mail / Username (unique username)
+// - Enter your password
+export async function loginUser({ identifier, password }) {
+  const res = await fetch(`${BASE_URL}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ identifier, password }),
+  });
+  const data = await res.json().catch(() => ({ detail: res.statusText }));
+  if (!res.ok) {
+    if (res.status === 403 && data.detail?.needs_verification) {
+      const err = new Error(data.detail.message || "Please verify your email.");
+      err.needs_verification = true;
+      err.email = data.detail.email;
+      err.username = data.detail.username;
+      throw err;
+    }
+    throw new Error(typeof data.detail === "string" ? data.detail : "Login failed");
+  }
+  return data;
+}
+
+// Sign in with Google: ONLY works if the mail has already been registered!
 export async function googleLoginStrict(email) {
   const res = await fetch(`${BASE_URL}/api/auth/google-login`, {
     method: "POST",
@@ -82,20 +113,6 @@ export async function googleLoginStrict(email) {
   const data = await res.json().catch(() => ({ detail: res.statusText }));
   if (!res.ok) {
     throw new Error(data.detail || "Google Log In failed.");
-  }
-  return data;
-}
-
-// Standard Login with Username / Email + Password
-export async function credentialLogin(identifier, password) {
-  const res = await fetch(`${BASE_URL}/api/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ identifier, password }),
-  });
-  const data = await res.json().catch(() => ({ detail: res.statusText }));
-  if (!res.ok) {
-    throw new Error(data.detail || "Login failed.");
   }
   return data;
 }
