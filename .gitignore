@@ -44,8 +44,11 @@ ENV/
 .coverage
 htmlcov/
 
-# Local databases
+# Local databases & secrets
 data/nexus_users.db
+.env
+.env.*
+!.env.example
 
 
 # Large data and models
