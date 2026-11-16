@@ -1,29 +1,29 @@
 """
 FastAPI Server for NEXUS
-Exposes WebSocket streaming endpoint (/ws/transliterate),
-REST transliterate endpoints, and Authentication & Email Verification endpoints.
+Exposes WebSocket streaming endpoint (/ws/transliterate)
+and the 3-step Email Verification + Google Auth Endpoints.
 """
 
 import json
 from typing import Optional
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 
 from src.transliteration import transliterate_stream, transliterate
 from src.auth import (
-    register_user,
-    verify_code,
-    resend_code,
-    login_user,
-    login_with_google,
+    start_email_signup,
+    verify_email_code,
+    complete_signup_username,
+    login_with_google_strict,
+    login_with_credentials,
     validate_token,
 )
 
 app = FastAPI(
     title="NEXUS Transliteration API",
-    description="English-to-Kannada Phonetic Transliteration Engine with Email Auth",
-    version="2.1.0",
+    description="English-to-Kannada Phonetic Transliteration Engine with 3-Step Email Auth",
+    version="2.2.0",
 )
 
 app.add_middleware(
@@ -39,75 +39,75 @@ class TransliterateRequest(BaseModel):
     text: str
 
 # ----------------- Auth Models -----------------
-class SignUpRequest(BaseModel):
-    username: str
+class StartSignupRequest(BaseModel):
     email: str
-    password: str
-    confirm_password: str
 
-class VerifyRequest(BaseModel):
+class VerifyCodeRequest(BaseModel):
     email: str
     code: str
 
-class ResendRequest(BaseModel):
+class CompleteSignupRequest(BaseModel):
+    email: str
+    username: str
+    password: Optional[str] = None
+
+class GoogleLoginRequest(BaseModel):
     email: str
 
-class LoginRequest(BaseModel):
-    identifier: str  # Email or Username
+class CredentialLoginRequest(BaseModel):
+    identifier: str
     password: str
-
-class GoogleAuthRequest(BaseModel):
-    email: str
-    name: Optional[str] = None
 
 # ----------------- General Endpoints -----------------
 @app.get("/api/health")
 def health_check():
-    return {"status": "healthy", "service": "NEXUS Transliteration Engine", "version": "2.1.0"}
+    return {"status": "healthy", "service": "NEXUS Transliteration Engine", "version": "2.2.0"}
 
 @app.post("/api/transliterate")
 def api_transliterate(payload: TransliterateRequest):
     return transliterate(payload.text)
 
-# ----------------- Authentication Endpoints -----------------
-@app.post("/api/auth/signup")
-def api_signup(payload: SignUpRequest):
-    success, msg, data = register_user(
-        username=payload.username,
+# ----------------- Auth Endpoints (3-Step Flow) -----------------
+@app.post("/api/auth/start-signup")
+def api_start_signup(payload: StartSignupRequest):
+    """Step 1: User enters email / Google signup email -> code dispatched to mail."""
+    success, msg, data = start_email_signup(email=payload.email)
+    if not success:
+        raise HTTPException(status_code=400, detail=msg)
+    return {"success": True, "message": msg, "data": data}
+
+@app.post("/api/auth/verify-code")
+def api_verify_code(payload: VerifyCodeRequest):
+    """Step 2: User enters the 6-digit code received on their email."""
+    success, msg, data = verify_email_code(email=payload.email, code=payload.code)
+    if not success:
+        raise HTTPException(status_code=400, detail=msg)
+    return {"success": True, "message": msg, "data": data}
+
+@app.post("/api/auth/complete-signup")
+def api_complete_signup(payload: CompleteSignupRequest):
+    """Step 3: Once verified, user chooses their unique username only."""
+    success, msg, data = complete_signup_username(
         email=payload.email,
+        username=payload.username,
         password=payload.password,
-        confirm_password=payload.confirm_password,
     )
     if not success:
         raise HTTPException(status_code=400, detail=msg)
     return {"success": True, "message": msg, "data": data}
 
-@app.post("/api/auth/verify")
-def api_verify(payload: VerifyRequest):
-    success, msg, data = verify_code(email=payload.email, code=payload.code)
+@app.post("/api/auth/google-login")
+def api_google_login(payload: GoogleLoginRequest):
+    """Google Log In: ONLY works if the email has already been registered!"""
+    success, msg, data = login_with_google_strict(email=payload.email)
     if not success:
         raise HTTPException(status_code=400, detail=msg)
     return {"success": True, "message": msg, "data": data}
-
-@app.post("/api/auth/resend")
-def api_resend(payload: ResendRequest):
-    success, msg = resend_code(email=payload.email)
-    if not success:
-        raise HTTPException(status_code=400, detail=msg)
-    return {"success": True, "message": msg}
 
 @app.post("/api/auth/login")
-def api_login(payload: LoginRequest):
-    success, msg, data = login_user(identifier=payload.identifier, password=payload.password)
-    if not success:
-        if data and data.get("needs_verification"):
-            raise HTTPException(status_code=403, detail={"message": msg, "needs_verification": True, "email": data.get("email"), "username": data.get("username")})
-        raise HTTPException(status_code=400, detail=msg)
-    return {"success": True, "message": msg, "data": data}
-
-@app.post("/api/auth/google")
-def api_google_login(payload: GoogleAuthRequest):
-    success, msg, data = login_with_google(email=payload.email, name=payload.name)
+def api_credential_login(payload: CredentialLoginRequest):
+    """Standard Login with Username/Email + Password."""
+    success, msg, data = login_with_credentials(identifier=payload.identifier, password=payload.password)
     if not success:
         raise HTTPException(status_code=400, detail=msg)
     return {"success": True, "message": msg, "data": data}
