@@ -1,5 +1,17 @@
 import React, { useState } from "react";
-import { X, User, Mail, ShieldCheck, Database, LogOut, Check, AlertTriangle, Key } from "lucide-react";
+import {
+  X,
+  User,
+  Mail,
+  ShieldCheck,
+  Database,
+  LogOut,
+  Check,
+  AlertTriangle,
+  Sliders,
+  Eye,
+  Type
+} from "lucide-react";
 import { updateUserProfile } from "../services/api";
 
 export function SettingsModal({
@@ -9,6 +21,13 @@ export function SettingsModal({
   authToken,
   onUpdateUser,
   onLogout,
+  displayPreferences = {
+    showPipeline: true,
+    showConfidenceFlags: true,
+    showInterlinear: true,
+    kannadaTextSize: "normal",
+  },
+  onUpdateDisplayPreferences,
 }) {
   const [username, setUsername] = useState(currentUser?.username || "");
   const [loading, setLoading] = useState(false);
@@ -46,9 +65,33 @@ export function SettingsModal({
     }
   };
 
+  const togglePref = (key) => {
+    if (onUpdateDisplayPreferences) {
+      onUpdateDisplayPreferences({
+        ...displayPreferences,
+        [key]: !displayPreferences[key],
+      });
+    }
+  };
+
+  const setKannadaSize = (size) => {
+    if (onUpdateDisplayPreferences) {
+      onUpdateDisplayPreferences({
+        ...displayPreferences,
+        kannadaTextSize: size,
+      });
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40 backdrop-blur-sm animate-fade-in">
-      <div className="bg-card border border-ink/10 rounded-2xl p-6 sm:p-7 max-w-lg w-full shadow-2xl relative space-y-6">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40 backdrop-blur-xs animate-fade-in"
+      onClick={onClose}
+    >
+      <div
+        className="bg-card border border-ink/10 rounded-2xl p-6 sm:p-7 max-w-lg w-full shadow-2xl relative space-y-6 max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-ink/8 pb-4">
           <div className="flex items-center gap-2.5">
@@ -57,10 +100,10 @@ export function SettingsModal({
             </div>
             <div>
               <h3 className="font-serif text-lg font-semibold text-ink">
-                Settings & Profile
+                Settings & Preferences
               </h3>
               <p className="text-[11px] text-ink/50">
-                Manage your NEXUS account, database sync, and active session
+                Manage your NEXUS account, display toggles, and active session
               </p>
             </div>
           </div>
@@ -90,7 +133,7 @@ export function SettingsModal({
         {/* 1. Profile Section */}
         <form onSubmit={handleSaveProfile} className="space-y-4">
           <div className="flex items-center gap-4 p-3 bg-paper rounded-xl border border-ink/8">
-            <div className="w-12 h-12 rounded-full bg-accent text-card font-serif font-bold text-xl flex items-center justify-center shadow-sm">
+            <div className="w-12 h-12 rounded-full bg-accent text-card font-serif font-bold text-xl flex items-center justify-center shadow-xs">
               {currentUser?.username?.[0]?.toUpperCase() || "U"}
             </div>
             <div className="flex-1 min-w-0">
@@ -144,14 +187,94 @@ export function SettingsModal({
             <button
               type="submit"
               disabled={loading}
-              className="px-4 py-2 bg-accent text-card text-xs font-semibold rounded-input hover:opacity-90 shadow-sm transition-opacity"
+              className="px-4 py-2 bg-accent text-card text-xs font-semibold rounded-input hover:opacity-90 shadow-2xs transition-opacity"
             >
               {loading ? "Saving..." : "Save Profile Changes"}
             </button>
           </div>
         </form>
 
-        {/* 2. System Architecture Card */}
+        {/* 2. Display Toggles (§3.F.5) */}
+        <div className="p-3.5 bg-paper rounded-xl border border-ink/8 space-y-3 text-xs">
+          <div className="flex items-center gap-1.5 font-semibold text-ink text-xs border-b border-ink/6 pb-2">
+            <Eye className="w-3.5 h-3.5 text-accent" />
+            <span>Display Toggles</span>
+          </div>
+
+          <div className="space-y-2">
+            {/* Show pipeline toggle */}
+            <label className="flex items-center justify-between cursor-pointer py-1">
+              <div>
+                <span className="font-medium text-ink block text-[11px]">Show Pipeline Stages</span>
+                <span className="text-[10px] text-ink/50">Display the 7-stage verification trace panel</span>
+              </div>
+              <input
+                type="checkbox"
+                checked={displayPreferences.showPipeline}
+                onChange={() => togglePref("showPipeline")}
+                className="accent-accent w-4 h-4 cursor-pointer"
+              />
+            </label>
+
+            {/* Show confidence flags */}
+            <label className="flex items-center justify-between cursor-pointer py-1">
+              <div>
+                <span className="font-medium text-ink block text-[11px]">Show Confidence Flags</span>
+                <span className="text-[10px] text-ink/50">Mark tokens below threshold τ with amber ▲</span>
+              </div>
+              <input
+                type="checkbox"
+                checked={displayPreferences.showConfidenceFlags}
+                onChange={() => togglePref("showConfidenceFlags")}
+                className="accent-accent w-4 h-4 cursor-pointer"
+              />
+            </label>
+
+            {/* Interlinear view on/off */}
+            <label className="flex items-center justify-between cursor-pointer py-1">
+              <div>
+                <span className="font-medium text-ink block text-[11px]">Interlinear View</span>
+                <span className="text-[10px] text-ink/50">Show aligned English source above Kannada script</span>
+              </div>
+              <input
+                type="checkbox"
+                checked={displayPreferences.showInterlinear}
+                onChange={() => togglePref("showInterlinear")}
+                className="accent-accent w-4 h-4 cursor-pointer"
+              />
+            </label>
+
+            {/* Kannada Text Size */}
+            <div className="flex items-center justify-between py-1">
+              <div>
+                <span className="font-medium text-ink block text-[11px]">Kannada Text Size</span>
+                <span className="text-[10px] text-ink/50">Adjust script readability scale</span>
+              </div>
+              <div className="flex gap-1">
+                {[
+                  { id: "normal", label: "M" },
+                  { id: "large", label: "L" },
+                  { id: "xlarge", label: "XL" },
+                ].map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => setKannadaSize(s.id)}
+                    className={`px-2 py-0.5 rounded text-[11px] font-mono font-bold transition-colors ${
+                      displayPreferences.kannadaTextSize === s.id
+                        ? "bg-accent text-card"
+                        : "bg-card border border-ink/10 text-ink/70 hover:text-ink"
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 3. System Architecture Card */}
         <div className="p-3 bg-code/50 rounded-xl border border-ink/8 space-y-2 text-[11px] font-mono text-ink/70">
           <div className="flex items-center justify-between">
             <span className="flex items-center gap-1.5 font-semibold text-ink">
@@ -169,7 +292,7 @@ export function SettingsModal({
           </div>
         </div>
 
-        {/* 3. Session & Logout Area (as requested: inside settings) */}
+        {/* 4. Session & Logout Area */}
         <div className="pt-3 border-t border-ink/8 flex items-center justify-between">
           <div>
             <span className="text-xs font-semibold text-ink block">Session Actions</span>
@@ -181,7 +304,7 @@ export function SettingsModal({
               onClose();
               onLogout();
             }}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-input bg-attention/10 text-attention hover:bg-attention/20 text-xs font-semibold transition-colors border border-attention/20 shadow-sm"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-input bg-attention/10 text-attention hover:bg-attention/20 text-xs font-semibold transition-colors border border-attention/20 shadow-2xs"
           >
             <LogOut className="w-3.5 h-3.5" />
             Log Out

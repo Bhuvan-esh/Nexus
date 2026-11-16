@@ -9,11 +9,14 @@ import {
   X,
   MessageSquare,
   Settings,
-  ChevronLeft,
-  ChevronRight,
-  ExternalLink,
   PanelLeftClose,
-  PanelLeft
+  PanelLeft,
+  Star,
+  Sparkles,
+  ClipboardList,
+  ShieldCheck,
+  CheckCircle2,
+  Clock
 } from "lucide-react";
 
 export function Sidebar({
@@ -28,11 +31,16 @@ export function Sidebar({
   onToggle,
   currentUser,
   onOpenSettings,
+  savedPhrases = [],
+  onSelectSavedPhrase,
+  corrections = [],
+  onSelectExample,
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState("");
   const [isRail, setIsRail] = useState(false); // Desktop icon rail toggle
+  const [activeTab, setActiveTab] = useState("chats"); // "chats" | "saved" | "examples" | "corrections"
 
   const startEditing = (chat, e) => {
     e.stopPropagation();
@@ -90,6 +98,38 @@ export function Sidebar({
     return { pinned, today, yesterday, earlier };
   }, [conversations, searchQuery]);
 
+  // Test examples matrix (§3.F.3)
+  const EXAMPLE_MATRIX = [
+    {
+      group: "Names",
+      items: [
+        { en: "Bhuvanesh", kn: "ಭುವನೇಶ್" },
+        { en: "Bangalore", kn: "ಬ್ಯಾಂಗಲೋರ್" },
+      ],
+    },
+    {
+      group: "Tech terms",
+      items: [
+        { en: "Machine learning", kn: "ಮಷೀನ್ ಲರ್ನಿಂಗ್" },
+        { en: "Computer", kn: "ಕಂಪ್ಯೂಟರ್" },
+      ],
+    },
+    {
+      group: "Sentences",
+      items: [
+        { en: "Hello", kn: "ಹೆಲ್ಲೋ" },
+        { en: "Good morning", kn: "ಗುಡ್ ಮಾರ್ನಿಂಗ್" },
+      ],
+    },
+    {
+      group: "URLs / Protected Spans",
+      items: [
+        { en: "https://example.com", kn: "https://example.com" },
+        { en: "bhuvanj06@gmail.com", kn: "bhuvanj06@gmail.com" },
+      ],
+    },
+  ];
+
   const renderChatItem = (chat) => {
     const isActive = chat.id === activeId;
     const isEditing = chat.id === editingId;
@@ -98,10 +138,10 @@ export function Sidebar({
       <div
         key={chat.id}
         onClick={() => onSelectChat(chat.id)}
-        className={`group relative flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs cursor-pointer transition-all ${
+        className={`group relative flex items-center justify-between px-2.5 py-2 rounded-lg text-xs cursor-pointer transition-all ${
           isActive
-            ? "bg-paper text-ink font-semibold border border-ink/8 shadow-xs"
-            : "text-ink/70 hover:bg-paper/70 hover:text-ink"
+            ? "bg-paper text-ink font-semibold border-l-2 border-accent shadow-xs pl-2"
+            : "text-ink/75 hover:bg-paper/70 hover:text-ink"
         }`}
       >
         {isEditing ? (
@@ -128,10 +168,10 @@ export function Sidebar({
               ) : (
                 <MessageSquare className="w-3 h-3 text-ink/30 flex-shrink-0" />
               )}
-              <span className="truncate text-[11px]">{chat.title || "Untitled"}</span>
+              <span className="truncate text-[12px]">{chat.title || "Untitled"}</span>
             </div>
 
-            {/* Action Tools on Hover: Pin, Rename, Delete */}
+            {/* Hover Actions: Pin, Rename, Delete */}
             <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 transition-opacity">
               <button
                 onClick={(e) => {
@@ -207,7 +247,7 @@ export function Sidebar({
         {isRail ? (
           <div className="hidden md:flex flex-col items-center justify-between h-full py-3 px-2">
             <div className="space-y-3 flex flex-col items-center">
-              {/* Logo / Expand Trigger */}
+              {/* Brand Logo / Expand Trigger */}
               <button
                 onClick={() => setIsRail(false)}
                 className="w-10 h-10 rounded-xl bg-paper border border-ink/8 flex items-center justify-center shadow-xs hover:border-accent/40"
@@ -217,10 +257,10 @@ export function Sidebar({
                 <span className="font-kannada font-bold text-ink text-xs ml-0.5">ಕ</span>
               </button>
 
-              {/* One Accent-Coloured Action: New Chat Button */}
+              {/* Ink/Outlined New Chat Button as per §3.A.3 */}
               <button
                 onClick={onNewChat}
-                className="w-10 h-10 rounded-xl bg-accent text-card shadow-sm hover:opacity-90 flex items-center justify-center transition-opacity"
+                className="w-10 h-10 rounded-xl border border-ink/15 text-ink hover:border-ink/30 hover:bg-paper shadow-2xs flex items-center justify-center transition-all"
                 title="New Transliteration"
               >
                 <Plus className="w-5 h-5" />
@@ -228,11 +268,38 @@ export function Sidebar({
 
               {/* Search Trigger */}
               <button
-                onClick={() => setIsRail(false)}
+                onClick={() => {
+                  setIsRail(false);
+                  setActiveTab("chats");
+                }}
                 className="w-9 h-9 rounded-lg text-ink/50 hover:text-ink hover:bg-paper flex items-center justify-center transition-colors"
                 title="Search Chats"
               >
                 <Search className="w-4 h-4" />
+              </button>
+
+              {/* Saved Phrasebook Trigger */}
+              <button
+                onClick={() => {
+                  setIsRail(false);
+                  setActiveTab("saved");
+                }}
+                className="w-9 h-9 rounded-lg text-ink/50 hover:text-ink hover:bg-paper flex items-center justify-center transition-colors"
+                title="Saved Phrasebook"
+              >
+                <Star className="w-4 h-4" />
+              </button>
+
+              {/* Examples Trigger */}
+              <button
+                onClick={() => {
+                  setIsRail(false);
+                  setActiveTab("examples");
+                }}
+                className="w-9 h-9 rounded-lg text-ink/50 hover:text-ink hover:bg-paper flex items-center justify-center transition-colors"
+                title="Test Matrix Examples"
+              >
+                <Sparkles className="w-4 h-4" />
               </button>
             </div>
 
@@ -267,9 +334,14 @@ export function Sidebar({
                   <span className="font-serif font-bold text-accent text-sm">A</span>
                   <span className="font-kannada font-bold text-ink text-xs ml-0.5">ಕ</span>
                 </div>
-                <span className="font-serif font-bold text-sm tracking-tight text-ink">
-                  NEXUS
-                </span>
+                <div className="flex flex-col">
+                  <span className="font-serif font-bold text-sm tracking-tight text-ink leading-tight">
+                    NEXUS
+                  </span>
+                  <span className="text-[9px] font-mono text-ink/40 tracking-wider uppercase">
+                    Phonetic Engine
+                  </span>
+                </div>
               </div>
 
               <div className="flex items-center gap-1">
@@ -292,78 +364,217 @@ export function Sidebar({
               </div>
             </div>
 
-            {/* Top Action Area: ONE ACCENT-COLOURED ACTION (New Chat) */}
+            {/* Top Action Area: INK/OUTLINED NEW CHAT (§3.A.3) */}
             <div className="p-3 pb-2 space-y-2.5">
               <button
                 onClick={onNewChat}
-                className="w-full py-2.5 px-3 bg-accent text-card rounded-xl text-xs font-semibold hover:opacity-90 shadow-sm transition-all flex items-center justify-center gap-2"
+                className="w-full py-2 px-3 border border-ink/15 text-ink bg-card hover:bg-paper hover:border-ink/30 rounded-xl text-xs font-semibold shadow-2xs transition-all flex items-center justify-center gap-2"
               >
                 <Plus className="w-4 h-4" />
                 <span>New Chat</span>
               </button>
 
-              {/* History Search (Filters by English or Kannada text) */}
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 text-ink/40 absolute left-2.5 top-2.5" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search history (English / ಕನ್ನಡ)..."
-                  className="w-full bg-paper border border-ink/8 rounded-xl py-1.5 pl-8 pr-7 text-xs text-ink placeholder:text-ink/40 focus:outline-none focus:border-accent"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery("")}
-                    className="absolute right-2.5 top-2 text-ink/30 hover:text-ink"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                )}
+              {/* Sub-Navigation Tabs: Chats, Saved, Examples, Corrections */}
+              <div className="grid grid-cols-4 gap-1 p-1 bg-paper rounded-lg border border-ink/8 text-[10px] font-mono">
+                {[
+                  { id: "chats", label: "Chats", icon: MessageSquare },
+                  { id: "saved", label: "Saved", icon: Star },
+                  { id: "examples", label: "Seed", icon: Sparkles },
+                  { id: "corrections", label: "Review", icon: ClipboardList },
+                ].map((t) => {
+                  const Icon = t.icon;
+                  const isActive = activeTab === t.id;
+                  return (
+                    <button
+                      key={t.id}
+                      onClick={() => setActiveTab(t.id)}
+                      className={`py-1 rounded flex flex-col items-center gap-0.5 transition-colors ${
+                        isActive
+                          ? "bg-card text-ink font-bold shadow-2xs"
+                          : "text-ink/50 hover:text-ink"
+                      }`}
+                      title={t.label}
+                    >
+                      <Icon className="w-3 h-3" />
+                      <span>{t.label}</span>
+                    </button>
+                  );
+                })}
               </div>
+
+              {/* History Search (Filters by English or Kannada text) */}
+              {activeTab === "chats" && (
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-ink/40 absolute left-2.5 top-2.5" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search history (English / ಕನ್ನಡ)..."
+                    className="w-full bg-paper border border-ink/8 rounded-xl py-1.5 pl-8 pr-7 text-xs text-ink placeholder:text-ink/40 focus:outline-none focus:border-accent"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-2.5 top-2 text-ink/30 hover:text-ink"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
-            {/* Middle Scrollable History: Pinned, Today, Yesterday, Earlier */}
+            {/* Scrollable Middle Content Area */}
             <div className="flex-1 overflow-y-auto px-3 py-1 space-y-2">
-              {renderSection("Pinned", groups.pinned)}
-              {renderSection("Today", groups.today)}
-              {renderSection("Yesterday", groups.yesterday)}
-              {renderSection("Earlier", groups.earlier)}
+              {/* TAB 1: CONVERSATIONS */}
+              {activeTab === "chats" && (
+                <>
+                  {renderSection("Pinned", groups.pinned)}
+                  {renderSection("Today", groups.today)}
+                  {renderSection("Yesterday", groups.yesterday)}
+                  {renderSection("Earlier", groups.earlier)}
 
-              {conversations.length === 0 && (
-                <div className="p-6 text-center text-xs text-ink/40">
-                  No conversations yet. Type in the composer to start!
+                  {conversations.length === 0 && (
+                    <div className="p-6 text-center text-xs text-ink/40">
+                      No conversations yet. Type in the composer to start!
+                    </div>
+                  )}
+
+                  {conversations.length > 0 &&
+                    groups.pinned.length === 0 &&
+                    groups.today.length === 0 &&
+                    groups.yesterday.length === 0 &&
+                    groups.earlier.length === 0 && (
+                      <div className="p-4 text-center text-xs text-ink/40">
+                        No results for "{searchQuery}"
+                      </div>
+                    )}
+                </>
+              )}
+
+              {/* TAB 2: SAVED PHRASEBOOK (§3.F.2) */}
+              {activeTab === "saved" && (
+                <div className="space-y-2 pt-1">
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-ink/40">
+                      Saved Phrasebook
+                    </span>
+                    <span className="text-[10px] font-mono text-ink/40">
+                      {savedPhrases.length} items
+                    </span>
+                  </div>
+
+                  {savedPhrases.length === 0 ? (
+                    <div className="p-6 text-center text-xs text-ink/40 space-y-1">
+                      <Star className="w-4 h-4 mx-auto text-ink/30" />
+                      <p>No starred phrases yet.</p>
+                      <p className="text-[10px] text-ink/30">
+                        Click the star on any transliteration to save it here.
+                      </p>
+                    </div>
+                  ) : (
+                    savedPhrases.map((phrase, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() => onSelectSavedPhrase && onSelectSavedPhrase(phrase)}
+                        className="p-2 rounded-lg bg-paper border border-ink/8 hover:border-accent/40 cursor-pointer transition-colors"
+                      >
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span className="text-[11px] text-ink/50 font-serif italic truncate">
+                            {phrase.source}
+                          </span>
+                          <Star className="w-3 h-3 text-accent fill-accent" />
+                        </div>
+                        <span className="font-kannada text-base font-semibold text-ink block">
+                          {phrase.kannada}
+                        </span>
+                      </div>
+                    ))
+                  )}
                 </div>
               )}
 
-              {conversations.length > 0 &&
-                groups.pinned.length === 0 &&
-                groups.today.length === 0 &&
-                groups.yesterday.length === 0 &&
-                groups.earlier.length === 0 && (
-                  <div className="p-4 text-center text-xs text-ink/40">
-                    No results for "{searchQuery}"
+              {/* TAB 3: TEST EXAMPLES MATRIX (§3.F.3) */}
+              {activeTab === "examples" && (
+                <div className="space-y-3 pt-1">
+                  <span className="block px-1 text-[10px] font-mono font-bold uppercase tracking-wider text-ink/40">
+                    Test Matrix Examples
+                  </span>
+
+                  {EXAMPLE_MATRIX.map((grp, i) => (
+                    <div key={i} className="space-y-1">
+                      <span className="text-[10px] font-mono text-ink/50 uppercase block px-1">
+                        {grp.group}
+                      </span>
+                      <div className="space-y-1">
+                        {grp.items.map((item, j) => (
+                          <button
+                            key={j}
+                            onClick={() => onSelectExample && onSelectExample(item.en)}
+                            className="w-full text-left p-2 rounded-lg bg-paper border border-ink/8 hover:border-accent/40 hover:bg-card transition-all flex items-center justify-between group"
+                          >
+                            <span className="text-xs text-ink/80 group-hover:text-ink font-medium truncate">
+                              {item.en}
+                            </span>
+                            <span className="font-kannada text-xs font-semibold text-ink/60 group-hover:text-ink">
+                              {item.kn}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* TAB 4: MY CORRECTIONS (§3.F.4) */}
+              {activeTab === "corrections" && (
+                <div className="space-y-2 pt-1">
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-ink/40">
+                      My Corrections
+                    </span>
+                    <span className="text-[10px] font-mono text-ink/40">
+                      {corrections.length} submitted
+                    </span>
                   </div>
-                )}
+
+                  {corrections.length === 0 ? (
+                    <div className="p-6 text-center text-xs text-ink/40 space-y-1">
+                      <ClipboardList className="w-4 h-4 mx-auto text-ink/30" />
+                      <p>No submitted corrections.</p>
+                      <p className="text-[10px] text-ink/30">
+                        Use "Suggest correction" on any message to track spelling feedback.
+                      </p>
+                    </div>
+                  ) : (
+                    corrections.map((corr, idx) => (
+                      <div
+                        key={idx}
+                        className="p-2.5 rounded-lg bg-paper border border-ink/8 space-y-1.5"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-medium text-ink truncate">
+                            {corr.source}
+                          </span>
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-attention/15 text-attention border border-attention/30">
+                            <Clock className="w-2.5 h-2.5" />
+                            Pending review
+                          </span>
+                        </div>
+                        <div className="text-[11px] font-kannada text-ink/80">
+                          Suggested: <span className="font-bold text-ink">{corr.suggested}</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
 
-            {/* Bottom Area: GitHub Link + User Profile & Settings */}
-            <div className="border-t border-ink/8 p-3 bg-paper/30 space-y-2">
-              <a
-                href="https://github.com/Bhuvan-esh/Nexus"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium text-ink/60 hover:text-ink hover:bg-paper transition-all"
-              >
-                <div className="flex items-center gap-2">
-                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
-                  </svg>
-                  <span>GitHub</span>
-                </div>
-                <ExternalLink className="w-3 h-3 text-ink/40" />
-              </a>
-
+            {/* Bottom Area: Profile */}
+            <div className="border-t border-ink/8 p-3 bg-paper/30">
               {/* User Profile Card with Settings Button */}
               <div className="flex items-center justify-between p-2 rounded-xl bg-card border border-ink/8 shadow-xs">
                 <button

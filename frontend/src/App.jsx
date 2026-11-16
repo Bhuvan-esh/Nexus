@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Navbar } from "./components/Navbar";
 import { Sidebar } from "./components/Sidebar";
 import { SettingsModal } from "./components/SettingsModal";
+import { CommandPalette } from "./components/CommandPalette";
 import { Chat } from "./pages/Chat";
 import { Lab } from "./pages/Lab";
 import { Evaluation } from "./pages/Evaluation";
@@ -24,11 +25,72 @@ export default function App() {
     return localStorage.getItem("nexus_auth_token") || null;
   });
 
-  // Settings Modal State
+  // Settings & Command Palette Modals
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
 
-  // Active feature section (e.g. "home", "proof", "inspector", "lab", "evaluation", "lexicon")
-  const [activeFeature, setActiveFeature] = useState("home");
+  // Active feature section (e.g. "proof", "inspector", "lab", "evaluation", "lexicon")
+  const [activeFeature, setActiveFeature] = useState("proof");
+
+  // Display Preferences (§3.F.5)
+  const [displayPreferences, setDisplayPreferences] = useState(() => {
+    try {
+      const saved = localStorage.getItem("nexus_display_prefs");
+      return saved
+        ? JSON.parse(saved)
+        : {
+            showPipeline: true,
+            showConfidenceFlags: true,
+            showInterlinear: true,
+            kannadaTextSize: "normal",
+          };
+    } catch {
+      return {
+        showPipeline: true,
+        showConfidenceFlags: true,
+        showInterlinear: true,
+        kannadaTextSize: "normal",
+      };
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("nexus_display_prefs", JSON.stringify(displayPreferences));
+    } catch {}
+  }, [displayPreferences]);
+
+  // Saved phrasebook (§3.F.2)
+  const [savedPhrases, setSavedPhrases] = useState(() => {
+    try {
+      const saved = localStorage.getItem("nexus_saved_phrases");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("nexus_saved_phrases", JSON.stringify(savedPhrases));
+    } catch {}
+  }, [savedPhrases]);
+
+  // My Corrections tracker (§3.F.4)
+  const [corrections, setCorrections] = useState(() => {
+    try {
+      const saved = localStorage.getItem("nexus_corrections");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("nexus_corrections", JSON.stringify(corrections));
+    } catch {}
+  }, [corrections]);
 
   // Verify auth session on load
   useEffect(() => {
@@ -125,7 +187,7 @@ export default function App() {
     setActiveChatId(newId);
     setMessages([]);
     setActivePage("chat");
-    setActiveFeature("home");
+    setActiveFeature("proof");
   };
 
   const handleDeleteChat = (id) => {
@@ -151,7 +213,7 @@ export default function App() {
   const handleSelectChat = (id) => {
     setActiveChatId(id);
     setActivePage("chat");
-    setActiveFeature("home");
+    setActiveFeature("proof");
     if (window.innerWidth < 768) {
       setIsSidebarOpen(false);
     }
@@ -165,6 +227,62 @@ export default function App() {
       setActivePage("evaluation");
     } else {
       setActivePage("chat");
+    }
+  };
+
+  const handleSavePhrase = (phrase) => {
+    setSavedPhrases((prev) => {
+      const exists = prev.some((p) => p.kannada === phrase.kannada && p.source === phrase.source);
+      if (exists) {
+        return prev.filter((p) => !(p.kannada === phrase.kannada && p.source === phrase.source));
+      }
+      return [phrase, ...prev];
+    });
+  };
+
+  const handleSuggestCorrection = (correction) => {
+    setCorrections((prev) => [correction, ...prev]);
+  };
+
+  const handleUseAlternate = (message) => {
+    if (!message || !message.tokens) return;
+    const tokenWithAlts = message.tokens.find((t) => t.candidates && t.candidates.length > 1);
+    if (!tokenWithAlts) return;
+
+    // Find next candidate
+    const currentIndex = tokenWithAlts.candidates.findIndex((c) => c.kannada === tokenWithAlts.kannada);
+    const nextIndex = (currentIndex + 1) % tokenWithAlts.candidates.length;
+    const nextCandidate = tokenWithAlts.candidates[nextIndex];
+
+    const updatedTokens = message.tokens.map((tok) =>
+      tok.id === tokenWithAlts.id ? { ...tok, kannada: nextCandidate.kannada } : tok
+    );
+    const newText = updatedTokens.map((t) => t.kannada).join(" ");
+
+    setMessages((prev) =>
+      prev.map((m) => (m.id === message.id ? { ...m, tokens: updatedTokens, text: newText } : m))
+    );
+
+    if (activeChatId) {
+      setConversations((all) =>
+        all.map((c) =>
+          c.id === activeChatId
+            ? {
+                ...c,
+                messages: c.messages.map((m) =>
+                  m.id === message.id ? { ...m, tokens: updatedTokens, text: newText } : m
+                ),
+              }
+            : c
+        )
+      );
+    }
+  };
+
+  const handleRegenerate = (message) => {
+    const textToRun = message.sourceText || message.text;
+    if (textToRun) {
+      handleSend(textToRun);
     }
   };
 
@@ -203,6 +321,7 @@ export default function App() {
       id: nexusMsgId,
       role: "nexus",
       text: "",
+      sourceText: text,
       isStreaming: true,
       timestamp: Date.now(),
       tokens: [],
@@ -330,10 +449,9 @@ export default function App() {
     return <Auth onAuthSuccess={handleAuthSuccess} />;
   }
 
-  // Once authenticated, render structured OpenDocs Voice style layout
   return (
     <div className="min-h-screen flex bg-paper text-ink relative overflow-hidden">
-      {/* 1. Left Structured Navigation Sidebar */}
+      {/* 1. Left Structured Navigation Sidebar (§3.F) */}
       <Sidebar
         conversations={conversations}
         activeId={activeChatId}
@@ -348,19 +466,25 @@ export default function App() {
         activeFeature={activeFeature}
         onSelectFeature={handleSelectFeature}
         onOpenSettings={() => setIsSettingsOpen(true)}
+        savedPhrases={savedPhrases}
+        onSelectSavedPhrase={(p) => handleSend(p.source)}
+        corrections={corrections}
+        onSelectExample={(text) => handleSend(text)}
       />
 
       {/* 2. Main Content View Area */}
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
-        {/* Top Navbar */}
+        {/* Top Navbar (§3.A.3 & §3.A.4) */}
         <Navbar
           currentUser={currentUser}
           onOpenSettings={() => setIsSettingsOpen(true)}
+          onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
           activeBreadcrumb={
-            activeFeature === "home"
+            activeFeature === "proof"
               ? "NEXUS Living Voice"
               : activeFeature.charAt(0).toUpperCase() + activeFeature.slice(1)
           }
+          notificationCount={0}
         />
 
         {/* Dynamic Center Page */}
@@ -380,6 +504,12 @@ export default function App() {
               }
               selectedFeature={activeFeature}
               onSelectFeature={handleSelectFeature}
+              onRegenerate={handleRegenerate}
+              onSavePhrase={handleSavePhrase}
+              savedPhrases={savedPhrases}
+              onUseAlternate={handleUseAlternate}
+              onSuggestCorrection={handleSuggestCorrection}
+              displayPreferences={displayPreferences}
             />
           )}
 
@@ -389,7 +519,19 @@ export default function App() {
         </main>
       </div>
 
-      {/* 3. Settings & Profile Modal (Contains Update Username and Log Out) */}
+      {/* 3. Command Palette Modal (Ctrl+K, §3.A.4) */}
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        conversations={conversations}
+        onSelectChat={handleSelectChat}
+        onNewChat={handleNewChat}
+        onSelectFeature={handleSelectFeature}
+        onSelectExample={(text) => handleSend(text)}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+      />
+
+      {/* 4. Settings & Profile Modal (§3.F.5) */}
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
@@ -397,6 +539,8 @@ export default function App() {
         authToken={authToken}
         onUpdateUser={handleUpdateUser}
         onLogout={handleLogout}
+        displayPreferences={displayPreferences}
+        onUpdateDisplayPreferences={setDisplayPreferences}
       />
     </div>
   );

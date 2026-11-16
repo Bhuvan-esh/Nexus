@@ -1,10 +1,25 @@
 import React, { useState, useEffect } from "react";
-import { Sliders, ShieldCheck, Check, Info, BarChart2, Search, BookMarked, Code, ExternalLink, X } from "lucide-react";
+import {
+  Sliders,
+  ShieldCheck,
+  Check,
+  Info,
+  BarChart2,
+  Search,
+  BookMarked,
+  Sparkles,
+  ChevronRight,
+  X,
+  RotateCw,
+  Lock
+} from "lucide-react";
+import { SourcePill } from "./SourcePill";
 
 export function FeaturesPanel({
   activeProofMsg,
   inspectedToken,
   onCloseToken,
+  onSelectCandidate,
   alpha = 0.5,
   beta = 0.5,
   gamma = 0.0,
@@ -12,8 +27,11 @@ export function FeaturesPanel({
   onUpdateParams,
   selectedTab = "proof",
   onTabChange,
+  isOpen = true,
+  onClose,
 }) {
   const [internalTab, setInternalTab] = useState(selectedTab);
+  const [lexiconSearch, setLexiconSearch] = useState("");
 
   useEffect(() => {
     if (selectedTab) {
@@ -30,8 +48,48 @@ export function FeaturesPanel({
   const stages = activeProofMsg?.stages || [];
   const completedCount = stages.length;
 
+  // Handle Tuning slider constraint: α + β = 1 when γ = 0 (§3.E2)
+  const handleAlphaChange = (newAlpha) => {
+    const clampedAlpha = Math.max(0, Math.min(1, newAlpha));
+    const newBeta = Math.round((1 - clampedAlpha) * 100) / 100;
+    if (onUpdateParams) {
+      onUpdateParams({ alpha: clampedAlpha, beta: newBeta });
+    }
+  };
+
+  const handleBetaChange = (newBeta) => {
+    const clampedBeta = Math.max(0, Math.min(1, newBeta));
+    const newAlpha = Math.round((1 - clampedBeta) * 100) / 100;
+    if (onUpdateParams) {
+      onUpdateParams({ alpha: newAlpha, beta: clampedBeta });
+    }
+  };
+
+  const LEXICON_DATABASE = [
+    { en: "hello", kn: "ಹೆಲ್ಲೋ", type: "Dictionary", freq: "High" },
+    { en: "school", kn: "ಸ್ಕೂಲ್", type: "Dictionary", freq: "High" },
+    { en: "bangalore", kn: "ಬ್ಯಾಂಗಲೋರ್", type: "Proper Noun", freq: "High" },
+    { en: "machine", kn: "ಮಷೀನ್", type: "Technical", freq: "Medium" },
+    { en: "learning", kn: "ಲರ್ನಿಂಗ್", type: "Technical", freq: "Medium" },
+    { en: "computer", kn: "ಕಂಪ್ಯೂಟರ್", type: "Technical", freq: "High" },
+    { en: "https://example.com", kn: "https://example.com", type: "Protected URL", freq: "Exact" },
+    { en: "user@domain.com", kn: "user@domain.com", type: "Protected Email", freq: "Exact" },
+  ];
+
+  const filteredLexicon = lexiconSearch.trim()
+    ? LEXICON_DATABASE.filter(
+        (item) =>
+          item.en.toLowerCase().includes(lexiconSearch.toLowerCase()) ||
+          item.kn.includes(lexiconSearch)
+      )
+    : LEXICON_DATABASE;
+
   return (
-    <aside className="w-80 lg:w-96 bg-card border-l border-ink/8 flex flex-col h-full overflow-hidden shadow-sm">
+    <aside
+      className={`fixed md:relative inset-x-0 bottom-0 md:inset-auto z-30 md:z-auto w-full md:w-80 lg:w-96 bg-card border-t md:border-t-0 md:border-l border-ink/8 flex flex-col max-h-[70vh] md:max-h-full h-full shadow-lg md:shadow-none transition-transform duration-300 ${
+        isOpen ? "translate-y-0 md:translate-x-0" : "translate-y-full md:translate-x-full md:hidden"
+      }`}
+    >
       {/* Panel Tab Header */}
       <div className="p-2.5 border-b border-ink/8 flex items-center justify-between bg-code/30">
         <div className="flex items-center gap-1 overflow-x-auto no-scrollbar w-full">
@@ -47,7 +105,7 @@ export function FeaturesPanel({
               onClick={() => setActiveTab(tab.id)}
               className={`px-2.5 py-1 rounded-lg text-[11px] font-mono font-semibold transition-all flex-shrink-0 relative ${
                 activeTab === tab.id
-                  ? "bg-card text-ink shadow-xs border border-ink/10"
+                  ? "bg-card text-ink shadow-2xs border border-ink/10"
                   : "text-ink/60 hover:text-ink"
               }`}
             >
@@ -58,6 +116,16 @@ export function FeaturesPanel({
             </button>
           ))}
         </div>
+
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="md:hidden p-1 text-ink/40 hover:text-ink"
+            title="Close Panel"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {/* Panel Body */}
@@ -74,7 +142,7 @@ export function FeaturesPanel({
               </span>
             </div>
 
-            {/* Segmented Progress */}
+            {/* Segmented Progress Bar */}
             <div className="flex gap-1 h-1.5 w-full bg-code rounded-full overflow-hidden">
               {Array.from({ length: 7 }).map((_, i) => (
                 <div
@@ -109,7 +177,7 @@ export function FeaturesPanel({
                       key={idx}
                       className={`p-2.5 rounded-card border text-xs transition-all ${
                         isDone
-                          ? "bg-paper border-ink/8 shadow-xs"
+                          ? "bg-paper border-ink/8 shadow-2xs"
                           : "bg-paper/30 border-ink/5 opacity-50"
                       }`}
                     >
@@ -183,14 +251,12 @@ export function FeaturesPanel({
                   <span className="text-xs font-serif italic text-ink/60 block mb-1">
                     Source: "{inspectedToken.source}"
                   </span>
-                  <span className="font-kannada text-3xl font-semibold text-ink block mb-2">
+                  <span className="font-kannada text-3xl font-semibold text-ink block mb-2 leading-[1.8]">
                     {inspectedToken.kannada}
                   </span>
                   <div className="flex justify-center gap-1.5 flex-wrap">
                     {(inspectedToken.origin || []).map((o, i) => (
-                      <span key={i} className="px-2 py-0.5 bg-link/10 text-link border border-link/20 rounded-full text-[10px] font-mono font-semibold">
-                        {o}
-                      </span>
+                      <SourcePill key={i} label={o} />
                     ))}
                     {!inspectedToken.confident && (
                       <span className="px-2 py-0.5 bg-attention/15 text-attention border border-attention/30 rounded-full text-[10px] font-mono font-bold">
@@ -205,24 +271,51 @@ export function FeaturesPanel({
                 </div>
 
                 <div className="space-y-2">
-                  {(inspectedToken.candidates || []).map((c, i) => (
-                    <div key={i} className="p-2.5 bg-paper rounded-card border border-ink/8 text-xs">
-                      <div className="flex items-center justify-between mb-1.5">
-                        <div className="flex items-center gap-2">
-                          <span className="text-ink/40 font-mono text-[10px]">#{i + 1}</span>
-                          <span className="font-kannada font-bold text-lg text-ink">{c.kannada}</span>
+                  {(inspectedToken.candidates || []).map((c, i) => {
+                    const isCurrent = c.kannada === inspectedToken.kannada;
+                    return (
+                      <div
+                        key={i}
+                        className={`p-2.5 rounded-card border text-xs transition-colors ${
+                          isCurrent
+                            ? "bg-card border-accent/40 shadow-xs"
+                            : "bg-paper border-ink/8 hover:border-ink/20"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-2">
+                            <span className="text-ink/40 font-mono text-[10px]">#{i + 1}</span>
+                            <span className="font-kannada font-bold text-lg text-ink leading-[1.7]">
+                              {c.kannada}
+                            </span>
+                            {isCurrent && (
+                              <span className="text-[9px] font-mono font-bold bg-accent/10 text-accent px-1.5 py-0.2 rounded">
+                                Selected
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-xs font-bold text-ink">
+                              {(c.score * 100).toFixed(0)}%
+                            </span>
+                            {!isCurrent && onSelectCandidate && (
+                              <button
+                                onClick={() => onSelectCandidate(c.kannada)}
+                                className="text-[10px] font-mono text-accent hover:underline"
+                              >
+                                Use this
+                              </button>
+                            )}
+                          </div>
                         </div>
-                        <span className="font-mono text-xs font-bold text-ink">
-                          {(c.score * 100).toFixed(0)}%
-                        </span>
+                        <div className="grid grid-cols-3 gap-1 bg-code p-1.5 rounded font-mono text-[9px] text-center">
+                          <div>P: <span className="font-bold">{c.P.toFixed(2)}</span></div>
+                          <div>L: <span className="font-bold">{c.L.toFixed(2)}</span></div>
+                          <div>X: <span className="font-bold">{c.X.toFixed(2)}</span></div>
+                        </div>
                       </div>
-                      <div className="grid grid-cols-3 gap-1 bg-code p-1.5 rounded font-mono text-[9px] text-center">
-                        <div>P: <span className="font-bold">{c.P.toFixed(2)}</span></div>
-                        <div>L: <span className="font-bold">{c.L.toFixed(2)}</span></div>
-                        <div>X: <span className="font-bold">{c.X.toFixed(2)}</span></div>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -233,11 +326,11 @@ export function FeaturesPanel({
         {activeTab === "lab" && (
           <div className="space-y-4 animate-fade-in text-xs">
             <span className="text-[10px] font-mono uppercase tracking-wider text-ink/50 font-bold block">
-              Selection Formulation Weights
+              Selection Formulation Weights (§3.E2)
             </span>
 
             <div className="p-2.5 bg-code rounded-lg font-mono text-[11px] text-ink/80 border border-ink/8">
-              Score = α·P + β·L + γ·X
+              Score = α·P + β·L + γ·X (Constraint: α + β = 1.0)
             </div>
 
             <div className="space-y-2">
@@ -251,7 +344,7 @@ export function FeaturesPanel({
                 max="1"
                 step="0.05"
                 value={alpha}
-                onChange={(e) => onUpdateParams && onUpdateParams({ alpha: parseFloat(e.target.value) })}
+                onChange={(e) => handleAlphaChange(parseFloat(e.target.value))}
                 className="w-full accent-accent cursor-pointer"
               />
             </div>
@@ -267,7 +360,7 @@ export function FeaturesPanel({
                 max="1"
                 step="0.05"
                 value={beta}
-                onChange={(e) => onUpdateParams && onUpdateParams({ beta: parseFloat(e.target.value) })}
+                onChange={(e) => handleBetaChange(parseFloat(e.target.value))}
                 className="w-full accent-accent cursor-pointer"
               />
             </div>
@@ -286,6 +379,9 @@ export function FeaturesPanel({
                 onChange={(e) => onUpdateParams && onUpdateParams({ tau: parseFloat(e.target.value) })}
                 className="w-full accent-attention cursor-pointer"
               />
+              <span className="text-[10px] text-ink/50 block">
+                Tokens with score &lt; τ are visibly marked with amber attention flags.
+              </span>
             </div>
           </div>
         )}
@@ -302,6 +398,7 @@ export function FeaturesPanel({
               { label: "Word Error Rate (WER)", value: "6.2%", target: "< 8.0%" },
               { label: "Exact Match Accuracy", value: "91.4%", target: "> 90.0%" },
               { label: "Median Latency (p50)", value: "28 ms", target: "< 50 ms" },
+              { label: "95th Percentile Latency (p95)", value: "48 ms", target: "< 100 ms" },
             ].map((m, i) => (
               <div key={i} className="p-3 bg-paper rounded-card border border-ink/8 flex items-center justify-between">
                 <div>
@@ -318,23 +415,33 @@ export function FeaturesPanel({
         {activeTab === "lexicon" && (
           <div className="space-y-3 animate-fade-in text-xs">
             <span className="text-[10px] font-mono uppercase tracking-wider text-ink/50 font-bold block">
-              Preserved Technical Spans
+              Preserved Lexicon & Dictionary
             </span>
-            <p className="text-[11px] text-ink/60">
-              Technical tokens, code entities, and URLs are preserved byte-for-byte with cryptographic SHA-256 verification.
-            </p>
+
+            {/* Search filter input */}
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-ink/40 absolute left-2.5 top-2.5" />
+              <input
+                type="text"
+                value={lexiconSearch}
+                onChange={(e) => setLexiconSearch(e.target.value)}
+                placeholder="Search lexicon..."
+                className="w-full bg-paper border border-ink/8 rounded-lg py-1.5 pl-8 pr-3 text-xs text-ink placeholder:text-ink/40 focus:outline-none focus:border-accent"
+              />
+            </div>
 
             <div className="space-y-2">
-              {[
-                { term: "https://docs.python.org", kind: "URL", status: "Preserved" },
-                { term: "import React", kind: "Code Keyword", status: "Preserved" },
-                { term: "bhuvanj06@gmail.com", kind: "Email", status: "Preserved" },
-                { term: "0x7FFF_FFFF", kind: "Hex/Address", status: "Preserved" },
-              ].map((item, idx) => (
-                <div key={idx} className="p-2.5 bg-paper rounded-lg border border-ink/8 flex items-center justify-between font-mono text-[11px]">
-                  <span className="text-ink truncate max-w-[160px]">{item.term}</span>
+              {filteredLexicon.map((item, idx) => (
+                <div
+                  key={idx}
+                  className="p-2.5 bg-paper rounded-lg border border-ink/8 flex items-center justify-between font-mono text-[11px]"
+                >
+                  <div>
+                    <span className="text-ink font-semibold block">{item.en}</span>
+                    <span className="font-kannada text-ink/70 font-normal">{item.kn}</span>
+                  </div>
                   <span className="text-[9px] bg-protected/10 text-protected font-bold px-1.5 py-0.5 rounded">
-                    {item.kind}
+                    {item.type}
                   </span>
                 </div>
               ))}

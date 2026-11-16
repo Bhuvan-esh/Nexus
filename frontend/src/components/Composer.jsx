@@ -7,6 +7,8 @@ const MAX_CHAR_LIMIT = 500;
 export function Composer({ onSend, isProcessing, completedStages = 0 }) {
   const [text, setText] = useState("");
   const [error, setError] = useState(null);
+  const [isResolved, setIsResolved] = useState(false);
+  const prevProcessingRef = useRef(isProcessing);
   const textareaRef = useRef(null);
 
   // Auto-resize textarea up to ~5 lines
@@ -16,6 +18,18 @@ export function Composer({ onSend, isProcessing, completedStages = 0 }) {
       textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 130)}px`;
     }
   }, [text]);
+
+  // Track processing completion to trigger momentary 'resolved' state (§3.B)
+  useEffect(() => {
+    if (prevProcessingRef.current && !isProcessing) {
+      setIsResolved(true);
+      const timer = setTimeout(() => {
+        setIsResolved(false);
+      }, 1400);
+      return () => clearTimeout(timer);
+    }
+    prevProcessingRef.current = isProcessing;
+  }, [isProcessing]);
 
   const handleChange = (e) => {
     const val = e.target.value;
@@ -59,6 +73,8 @@ export function Composer({ onSend, isProcessing, completedStages = 0 }) {
   let orbState = "idle";
   if (isProcessing) {
     orbState = "thinking";
+  } else if (isResolved) {
+    orbState = "resolved";
   } else if (text.trim().length > 0) {
     orbState = "typing";
   }
@@ -72,7 +88,7 @@ export function Composer({ onSend, isProcessing, completedStages = 0 }) {
       {error && (
         <div
           role="alert"
-          className="mb-2 flex items-center gap-2 px-3 py-2 rounded-input bg-attention/10 border border-attention/30 text-ink text-xs font-medium"
+          className="mb-2 flex items-center gap-2 px-3 py-2 rounded-input bg-attention/10 border border-attention/30 text-ink text-xs font-medium animate-fade-in"
         >
           <AlertTriangle className="w-3.5 h-3.5 text-attention flex-shrink-0" />
           <span>{error}</span>
@@ -93,7 +109,7 @@ export function Composer({ onSend, isProcessing, completedStages = 0 }) {
         />
 
         <div className="flex items-center gap-2 pb-0.5">
-          {/* Character counter */}
+          {/* Character counter (0/500) */}
           <span
             className={`text-[11px] font-mono tracking-tight transition-colors ${
               charCount > MAX_CHAR_LIMIT
@@ -106,7 +122,7 @@ export function Composer({ onSend, isProcessing, completedStages = 0 }) {
             {charCount}/{MAX_CHAR_LIMIT}
           </span>
 
-          {/* Primary 72pt Orb */}
+          {/* Primary 72px Orb */}
           <Orb
             state={orbState}
             completedStages={completedStages}
