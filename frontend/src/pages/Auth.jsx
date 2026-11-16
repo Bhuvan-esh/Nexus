@@ -410,9 +410,6 @@ export function Auth({ onAuthSuccess }) {
                     className="w-full bg-paper border border-ink/10 rounded-input py-2.5 pl-9 pr-3 text-sm text-ink placeholder:text-ink/30 focus:outline-none focus:border-accent"
                   />
                 </div>
-                <span className="text-[10px] text-ink/40 block mt-1">
-                  (Make sure the username should be unique)
-                </span>
               </div>
 
               {/* 2. Enter your password */}
