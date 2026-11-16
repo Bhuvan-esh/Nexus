@@ -1,0 +1,65 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-paper: #F5F1EA;
+  --color-card: #FBF9F5;
+  --color-code: #EFEBE2;
+  --color-ink: #1C1A17;
+  --color-ink-muted: rgba(28, 26, 23, 0.60);
+  --color-ink-border: rgba(28, 26, 23, 0.08);
+  --color-accent: #C8553D;
+  --color-link: #2F6FEB;
+  --color-protected: #3F7D5C;
+  --color-attention: #B4761F;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-image: url("/grain.png");
+  background-repeat: repeat;
+}
+
+/* Kannada script typography adjustments */
+.font-kannada {
+  font-family: "Noto Sans Kannada", sans-serif;
+  line-height: 1.7; /* Extra room so conjuncts (vattakshara) and vowel signs do not clip */
+}
+
+/* Custom subtle scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(28, 26, 23, 0.15);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(28, 26, 23, 0.3);
+}
+
+/* Paper card base styling */
+.paper-card {
+  background-color: var(--color-card);
+  border: 1px solid var(--color-ink-border);
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(28, 26, 23, 0.06);
+}
+
+/* Code surface styling */
+.code-card {
+  background-color: var(--color-code);
+  border: 1px solid var(--color-ink-border);
+  border-radius: 10px;
+  font-family: "JetBrains Mono", monospace;
+}

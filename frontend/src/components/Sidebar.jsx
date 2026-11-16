@@ -1,0 +1,153 @@
+import React, { useState } from "react";
+import { Plus, Trash2, Edit2, Check, X, Clock, ChevronLeft, ChevronRight } from "lucide-react";
+
+export function Sidebar({
+  conversations = [],
+  activeId,
+  onSelectChat,
+  onNewChat,
+  onDeleteChat,
+  onRenameChat,
+  isOpen,
+  onToggle,
+}) {
+  const [editingId, setEditingId] = useState(null);
+  const [editTitle, setEditTitle] = useState("");
+
+  const startEditing = (chat, e) => {
+    e.stopPropagation();
+    setEditingId(chat.id);
+    setEditTitle(chat.title);
+  };
+
+  const saveEditing = (id, e) => {
+    e.stopPropagation();
+    if (editTitle.trim()) {
+      onRenameChat(id, editTitle.trim());
+    }
+    setEditingId(null);
+  };
+
+  const cancelEditing = (e) => {
+    e.stopPropagation();
+    setEditingId(null);
+  };
+
+  return (
+    <>
+      {/* Toggle button on border */}
+      <button
+        onClick={onToggle}
+        className={`fixed top-20 z-20 transition-all duration-300 p-1.5 rounded-r-lg bg-card border border-l-0 border-ink/8 shadow-sm hover:bg-paper ${
+          isOpen ? "left-64" : "left-0"
+        }`}
+        title={isOpen ? "Collapse Sidebar" : "Open History"}
+      >
+        {isOpen ? <ChevronLeft className="w-4 h-4 text-ink/60" /> : <ChevronRight className="w-4 h-4 text-ink/60" />}
+      </button>
+
+      {/* Slide-out Drawer */}
+      <aside
+        className={`fixed top-16 bottom-0 left-0 z-10 w-64 bg-card border-r border-ink/8 flex flex-col transition-transform duration-300 ${
+          isOpen ? "translate-x-0 shadow-lg md:shadow-none" : "-translate-x-full"
+        }`}
+      >
+        {/* Header with New Chat */}
+        <div className="p-4 border-b border-ink/8 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-xs font-mono font-semibold uppercase text-ink/60 tracking-wider">
+            <Clock className="w-3.5 h-3.5" />
+            History
+          </div>
+          <button
+            onClick={onNewChat}
+            className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-pill bg-paper border border-ink/8 text-ink hover:border-accent/40 transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            New
+          </button>
+        </div>
+
+        {/* Conversation List */}
+        <div className="flex-1 overflow-y-auto p-2 space-y-1">
+          {conversations.length === 0 ? (
+            <div className="p-6 text-center text-xs text-ink/40">
+              No previous transliterations yet.
+            </div>
+          ) : (
+            conversations.map((chat) => {
+              const isActive = chat.id === activeId;
+              const isEditing = chat.id === editingId;
+
+              return (
+                <div
+                  key={chat.id}
+                  onClick={() => onSelectChat(chat.id)}
+                  className={`group relative flex items-center justify-between p-2.5 rounded-card text-xs cursor-pointer transition-all ${
+                    isActive
+                      ? "bg-paper font-semibold text-ink border border-ink/8 shadow-sm"
+                      : "text-ink/70 hover:bg-paper/60 hover:text-ink"
+                  }`}
+                >
+                  {isEditing ? (
+                    <div className="flex items-center gap-1 w-full" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="text"
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                        className="flex-1 bg-card border border-ink/20 rounded px-1.5 py-0.5 text-xs text-ink focus:outline-none focus:border-accent"
+                        autoFocus
+                      />
+                      <button onClick={(e) => saveEditing(chat.id, e)} className="p-1 text-protected hover:opacity-80">
+                        <Check className="w-3 h-3" />
+                      </button>
+                      <button onClick={cancelEditing} className="p-1 text-ink/40 hover:text-ink">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="truncate flex-1 pr-2">
+                        <p className="truncate font-medium">{chat.title || "Untitled Chat"}</p>
+                        <p className="text-[10px] text-ink/40 font-mono">
+                          {new Date(chat.timestamp).toLocaleDateString([], {
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </p>
+                      </div>
+
+                      <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-opacity">
+                        <button
+                          onClick={(e) => startEditing(chat, e)}
+                          className="p-1 text-ink/40 hover:text-ink"
+                          title="Rename"
+                        >
+                          <Edit2 className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteChat(chat.id);
+                          }}
+                          className="p-1 text-ink/40 hover:text-accent"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="p-3 border-t border-ink/8 text-[11px] text-ink/50 text-center font-mono">
+          NEXUS v2.0 · Paper UI
+        </div>
+      </aside>
+    </>
+  );
+}
